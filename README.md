@@ -1,199 +1,198 @@
-# RG Beauty — Sistema de Gestión de Inventario
+
+@'
+# RG Beauty — Sistema de gestión de inventario
 
 ## 1. Descripción del proyecto
 
-RG Beauty es un sistema web desarrollado con Django para apoyar la gestión de inventario de una microempresa dedicada a servicios y productos de belleza.
+RG Beauty es un sistema web desarrollado con Django para apoyar la administración de productos, existencias y movimientos de inventario de una microempresa dedicada a servicios y productos de belleza.
 
-El proyecto busca centralizar la información de los productos y facilitar el control de existencias, los movimientos de inventario y el seguimiento de los cambios de stock.
+El proyecto forma parte del sistema de gestión de RG Beauty y contempla su futura integración con otros módulos, como ventas, reservas y administración de usuarios.
 
-## 2. Tecnologías utilizadas
+## 2. Tecnologías
 
 - Python 3.14
 - Django 5.2
-- SQLite para el desarrollo local
+- MySQL
 - HTML y CSS
-- Git y GitHub para el control de versiones
+- Git y GitHub
+- python-dotenv para la configuración mediante variables de entorno
 
 ## 3. Requisitos previos
 
-Antes de ejecutar el proyecto, se necesita tener instalado:
+Cada integrante debe disponer de:
 
-- Python 3.14 o una versión compatible con las dependencias del proyecto.
+- Python instalado.
 - Git.
+- MySQL Server y un cliente de administración de bases de datos.
 - Un editor de código, como Visual Studio Code.
 
-## 4. Instalación
+## 4. Obtener el proyecto
 
-### Paso 1. Clonar el repositorio
+Clonar el repositorio:
 
 ```bash
 git clone https://github.com/skyiwii/Sistema-RG-Beauty.git
 cd Sistema-RG-Beauty
 ```
 
-### Paso 2. Crear un entorno virtual
-
-En Windows, ejecutar:
+Crear el entorno virtual:
 
 ```powershell
 python -m venv .venv
 ```
 
-### Paso 3. Activar el entorno virtual
-
-En PowerShell:
+Activarlo en PowerShell:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
 ```
 
-En CMD:
-
-```cmd
-.venv\Scripts\activate.bat
-```
-
-### Paso 4. Instalar las dependencias
+Instalar las dependencias:
 
 ```powershell
 python -m pip install -r requirements.txt
 ```
 
-### Paso 5. Aplicar las migraciones
+## 5. Configurar la conexión a MySQL
+
+Crear un archivo `.env` a partir de la plantilla:
 
 ```powershell
-python manage.py migrate
+Copy-Item .env.example .env
 ```
 
-Este comando crea las tablas necesarias para el funcionamiento local de Django.
+Editar `.env` y reemplazar los valores de ejemplo por las credenciales locales de MySQL:
 
-### Paso 6. Crear un usuario administrador
+```dotenv
+DB_NAME=rg_beauty
+DB_USER=tu_usuario_mysql
+DB_PASSWORD=tu_contraseña_mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+```
+
+Cada integrante debe configurar sus propias credenciales. El archivo `.env` contiene información local y no debe subirse al repositorio.
+
+La base de datos `rg_beauty` debe existir en el servidor MySQL y el usuario configurado debe tener los permisos necesarios.
+
+## 6. Base de datos del proyecto
+
+El archivo `database/Base_De_Datos_RG_Beauty.sql` contiene el esquema SQL compartido para el trabajo del equipo.
+
+**Precaución:** el archivo contiene instrucciones `DROP TABLE IF EXISTS`, por lo que puede eliminar tablas con nombres coincidentes. Debe utilizarse únicamente sobre una base de datos de prueba o una base nueva, después de revisar su contenido. No debe importarse sobre una base con información que se quiera conservar.
+
+El archivo incluye tablas del sistema de negocio y tablas internas de Django. Antes de utilizarlo junto con las migraciones de Django, el equipo debe coordinar cómo se integrará el esquema existente con las migraciones del framework, para evitar conflictos por tablas ya creadas.
+
+No se deben importar los scripts repetidamente sin comprobar previamente el estado de la base de datos.
+
+## 7. Ejecutar y comprobar el proyecto
+
+Comprobar la configuración:
 
 ```powershell
-python manage.py createsuperuser
+python manage.py check
 ```
 
-Cada integrante debe crear sus propias credenciales locales. No se deben compartir contraseñas ni subirlas al repositorio.
+Comprobar la conexión a la base de datos:
 
-### Paso 7. Ejecutar el servidor
+```powershell
+python manage.py shell -c "from django.db import connection; connection.ensure_connection(); print('Conexión a MySQL correcta')"
+```
+
+**Antes de ejecutar migraciones**, confirmar con el equipo el procedimiento de integración entre las tablas del SQL y las migraciones de Django.
+
+Cuando la configuración de la base de datos esté lista, ejecutar el servidor:
 
 ```powershell
 python manage.py runserver
 ```
 
-Abrir en el navegador:
+Abrir:
 
 - Sistema: http://127.0.0.1:8000/
 - Administración de Django: http://127.0.0.1:8000/admin/
 
-Para detener el servidor, presionar `Ctrl + C` en la terminal.
+Para detener el servidor, presionar `Ctrl + C`.
 
-## 5. Funcionalidades y estado actual
+## 8. Estado actual del sistema
 
-La versión actual contiene la estructura visual y la navegación inicial del sistema, junto con autenticación mediante Django.
+La versión actual contiene la estructura inicial del proyecto, navegación, autenticación basada en Django y páginas de referencia para el módulo de inventario.
 
-Las secciones disponibles son:
+Las secciones contempladas son:
 
 - Panel principal.
-- Listado de productos.
-- Formulario inicial de productos.
-- Consulta de stock.
+- Gestión de productos.
+- Consulta de existencias.
 - Registro de movimientos.
 - Ajustes de stock.
 - Historial de movimientos.
 
-Algunas de estas secciones son actualmente plantillas de referencia y requieren la implementación de la lógica correspondiente, los formularios funcionales y la persistencia de datos.
+Las pantallas que todavía sean de referencia deben completarse con la lógica de negocio, validaciones, acceso a datos y pruebas correspondientes.
 
-## 6. Acceso al sistema
+## 9. Organización del trabajo
 
-Las vistas principales requieren iniciar sesión. Para acceder, cada integrante debe crear un usuario local mediante `createsuperuser`.
+La distribución definitiva debe acordarse entre los integrantes antes de modificar archivos compartidos.
 
-Las credenciales creadas en un computador no se comparten automáticamente con los demás integrantes, ya que cada uno utiliza su propia base de datos local.
+Como propuesta inicial:
 
-## 7. Base de datos
+- **Integrante 1 — Productos:** listado, registro, edición, consulta y validaciones de productos.
+- **Integrante 2 — Stock:** consulta de existencias, disponibilidad y actualización del stock.
+- **Integrante 3 — Movimientos:** entradas, salidas y ajustes de inventario.
+- **Integrante 4 — Historial e integración:** consulta de movimientos, pruebas de integración y coordinación con los módulos relacionados.
 
-Durante el desarrollo local se utiliza SQLite. El archivo `db.sqlite3` está excluido del repositorio, por lo que cada integrante debe ejecutar las migraciones para crear su propia base de datos.
+Esta distribución es orientativa y debe ajustarse a las responsabilidades acordadas por el equipo. Las funcionalidades que compartan modelos, servicios o vistas deben coordinarse antes de implementarse.
 
-No se deben subir bases de datos personales, contraseñas ni archivos que contengan credenciales.
+## 10. Trabajo colaborativo con Git
 
-## 8. Trabajo colaborativo con Git
-
-### Actualizar la rama principal
-
-Antes de comenzar una tarea, actualizar la información del repositorio:
+Antes de comenzar una tarea:
 
 ```bash
 git switch main
 git pull origin main
 ```
 
-### Crear una rama de trabajo
-
-Cada integrante debe crear una rama propia para su tarea. Por ejemplo:
+Crear una rama propia:
 
 ```bash
-git switch -c feature/gestion-productos
+git switch -c feature/nombre-de-la-tarea
 ```
 
-El nombre debe describir el trabajo que se realizará. Algunos ejemplos:
+Ejemplos:
 
 - `feature/gestion-productos`
 - `feature/consulta-stock`
 - `feature/movimientos`
-- `feature/ajustes-stock`
 - `feature/historial`
 
-Cada integrante debe utilizar un nombre de rama distinto.
-
-### Guardar los cambios
-
-Para revisar los archivos modificados:
+Revisar los cambios:
 
 ```bash
 git status
 ```
 
-Para preparar y registrar los cambios:
+Preparar y registrar los archivos necesarios:
 
 ```bash
-git add .
-git commit -m "Describir brevemente los cambios"
+git add archivo_o_carpeta
+git commit -m "Descripción breve del cambio"
 ```
 
-Antes de ejecutar `git add .`, comprobar que no se incluyan archivos locales, credenciales ni otros archivos excluidos.
-
-### Publicar la rama
+Publicar la rama:
 
 ```bash
-git push -u origin feature/gestion-productos
+git push -u origin feature/nombre-de-la-tarea
 ```
 
-Reemplazar el nombre de la rama por el correspondiente a cada integrante.
+Después, crear un Pull Request en GitHub para revisar los cambios antes de integrarlos en `main`.
 
-### Integrar los cambios
+Evitar trabajar directamente sobre `main` y no incluir archivos `.env`, entornos virtuales ni credenciales.
 
-Cuando la funcionalidad esté lista, crear un Pull Request en GitHub para revisar e integrar los cambios en `main`.
+## 11. Comandos útiles
 
-No se recomienda que todos los integrantes trabajen directamente sobre `main`.
-
-## 9. Organización de los módulos
-
-Antes de implementar las funcionalidades, el equipo debe coordinar el modelo de datos y las relaciones entre productos, existencias y movimientos.
-
-La distribución de tareas debe acordarse entre los integrantes para evitar duplicar código o implementar estructuras incompatibles.
-
-## 10. Comandos útiles
-
-Comprobar la configuración del proyecto:
+Comprobar el proyecto:
 
 ```powershell
 python manage.py check
-```
-
-Aplicar migraciones:
-
-```powershell
-python manage.py migrate
 ```
 
 Ejecutar el servidor:
@@ -202,20 +201,21 @@ Ejecutar el servidor:
 python manage.py runserver
 ```
 
-Crear un usuario administrador:
+Crear un administrador de Django, una vez preparada la base de datos:
 
 ```powershell
 python manage.py createsuperuser
 ```
 
-Consultar el estado de Git:
+Revisar el estado del repositorio:
 
 ```bash
 git status
 ```
 
-Consultar las ramas disponibles:
+Consultar las ramas:
 
 ```bash
 git branch
 ```
+'@ | Set-Content -Encoding utf8 .\README.md
