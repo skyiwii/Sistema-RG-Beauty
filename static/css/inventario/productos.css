@@ -1,0 +1,58 @@
+
+/* ========================================
+   PANTALLA: PRODUCTOS
+   Estilos exclusivos del catálogo
+======================================== */
+
+/* Distribución de los filtros */
+
+.product-filters {
+    display: grid;
+    grid-template-columns:
+        minmax(200px, 2fr)
+        minmax(150px, 1fr)
+        minmax(140px, 1fr)
+        auto;
+    align-items: end;
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.product-filters .form-group {
+    margin-bottom: 0;
+}
+
+.filter-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* Separación de la tabla */
+
+.products-table-panel {
+    margin-top: 20px;
+}
+
+/* Adaptación para pantallas medianas */
+
+@media (max-width: 1000px) {
+    .product-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .filter-actions {
+        align-self: end;
+    }
+}
+
+/* Adaptación para móviles */
+
+@media (max-width: 560px) {
+    .product-filters {
+        grid-template-columns: 1fr;
+    }
+
+    .filter-actions {
+        flex-wrap: wrap;
+    }
+}
