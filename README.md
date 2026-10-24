@@ -27,15 +27,13 @@ Antes de ejecutar el proyecto, se necesita tener instalado:
 ### Paso 1. Clonar el repositorio
 
 ```bash
-git clone URL_DEL_REPOSITORIO
+git clone https://github.com/skyiwii/Sistema-RG-Beauty.git
 cd Sistema-RG-Beauty
 ```
 
-Reemplaza `URL_DEL_REPOSITORIO` por la dirección real del repositorio de GitHub.
-
 ### Paso 2. Crear un entorno virtual
 
-En Windows:
+En Windows, ejecutar:
 
 ```powershell
 python -m venv .venv
@@ -49,7 +47,7 @@ En PowerShell:
 .\.venv\Scripts\Activate.ps1
 ```
 
-Si se utiliza la consola CMD:
+En CMD:
 
 ```cmd
 .venv\Scripts\activate.bat
@@ -85,7 +83,10 @@ python manage.py runserver
 
 Abrir en el navegador:
 
-http://127.0.0.1:8000/
+- Sistema: http://127.0.0.1:8000/
+- Administración de Django: http://127.0.0.1:8000/admin/
+
+Para detener el servidor, presionar `Ctrl + C` en la terminal.
 
 ## 5. Funcionalidades y estado actual
 
@@ -107,29 +108,81 @@ Algunas de estas secciones son actualmente plantillas de referencia y requieren 
 
 Las vistas principales requieren iniciar sesión. Para acceder, cada integrante debe crear un usuario local mediante `createsuperuser`.
 
-El acceso al panel de administración de Django está disponible en:
-
-http://127.0.0.1:8000/admin/
+Las credenciales creadas en un computador no se comparten automáticamente con los demás integrantes, ya que cada uno utiliza su propia base de datos local.
 
 ## 7. Base de datos
 
-Durante el desarrollo local se utiliza SQLite. El archivo `db.sqlite3` no se incluye en el repositorio, por lo que cada integrante debe ejecutar las migraciones para crear su propia base de datos.
+Durante el desarrollo local se utiliza SQLite. El archivo `db.sqlite3` está excluido del repositorio, por lo que cada integrante debe ejecutar las migraciones para crear su propia base de datos.
 
 No se deben subir bases de datos personales, contraseñas ni archivos que contengan credenciales.
 
-## 8. Trabajo colaborativo
+## 8. Trabajo colaborativo con Git
 
-Antes de comenzar a trabajar, se recomienda actualizar la rama principal:
+### Actualizar la rama principal
+
+Antes de comenzar una tarea, actualizar la información del repositorio:
 
 ```bash
+git switch main
 git pull origin main
 ```
 
-Cada integrante debería desarrollar sus cambios en una rama propia y realizar un Pull Request para revisar e integrar el trabajo.
+### Crear una rama de trabajo
 
-Se debe coordinar el modelo de datos y las relaciones entre productos, existencias y movimientos antes de implementar las funcionalidades para evitar diferencias entre módulos.
+Cada integrante debe crear una rama propia para su tarea. Por ejemplo:
 
-## 9. Comandos útiles
+```bash
+git switch -c feature/gestion-productos
+```
+
+El nombre debe describir el trabajo que se realizará. Algunos ejemplos:
+
+- `feature/gestion-productos`
+- `feature/consulta-stock`
+- `feature/movimientos`
+- `feature/ajustes-stock`
+- `feature/historial`
+
+Cada integrante debe utilizar un nombre de rama distinto.
+
+### Guardar los cambios
+
+Para revisar los archivos modificados:
+
+```bash
+git status
+```
+
+Para preparar y registrar los cambios:
+
+```bash
+git add .
+git commit -m "Describir brevemente los cambios"
+```
+
+Antes de ejecutar `git add .`, comprobar que no se incluyan archivos locales, credenciales ni otros archivos excluidos.
+
+### Publicar la rama
+
+```bash
+git push -u origin feature/gestion-productos
+```
+
+Reemplazar el nombre de la rama por el correspondiente a cada integrante.
+
+### Integrar los cambios
+
+Cuando la funcionalidad esté lista, crear un Pull Request en GitHub para revisar e integrar los cambios en `main`.
+
+No se recomienda que todos los integrantes trabajen directamente sobre `main`.
+
+## 9. Organización de los módulos
+
+Antes de implementar las funcionalidades, el equipo debe coordinar el modelo de datos y las relaciones entre productos, existencias y movimientos.
+
+La distribución de tareas debe acordarse entre los integrantes para evitar duplicar código o implementar estructuras incompatibles.
+
+## 10. Comandos útiles
 
 Comprobar la configuración del proyecto:
 
@@ -153,4 +206,16 @@ Crear un usuario administrador:
 
 ```powershell
 python manage.py createsuperuser
+```
+
+Consultar el estado de Git:
+
+```bash
+git status
+```
+
+Consultar las ramas disponibles:
+
+```bash
+git branch
 ```
