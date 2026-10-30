@@ -1,76 +1,40 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Formulario de producto{% endblock %}
-
+{% block title %}{{ titulo }}{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/inventario/producto_form.css' %}">
 {% endblock %}
 
 {% block content %}
 <section class="page-heading">
-    <div>
-        <h1>Producto</h1>
-        <p>Área preparada para registrar o editar productos del catálogo.</p>
-    </div>
-
-    <a href="{% url 'inventario:productos_lista' %}"
-       class="button button-secondary">
-        Volver a productos
-    </a>
+    <div><h1>{{ titulo }}</h1><p>Completa los datos del producto para el catálogo de RG Beauty.</p></div>
+    <a href="{% url 'inventario:productos_lista' %}" class="button button-secondary">Volver a productos</a>
 </section>
+
+{% if messages %}
+    {% for message in messages %}<div class="message {{ message.tags }}">{{ message }}</div>{% endfor %}
+{% endif %}
 
 <section class="panel product-form-panel">
-    <div class="product-form-heading">
-        <h2>Información del producto</h2>
-        <p class="panel-subtitle">
-            Los campos definitivos se integrarán durante la implementación del módulo.
-        </p>
-    </div>
-
-    <div class="product-form-placeholder">
-        <div class="product-form-placeholder-icon">▤</div>
-
-        <h3>Formulario pendiente de implementación</h3>
-
-        <p>
-            En esta área se incorporarán los campos para identificar el producto,
-            definir su categoría y marca, registrar su precio y configurar
-            la información necesaria para el control de existencias.
-        </p>
-
-        <span class="placeholder-status">
-            Pendiente de implementación
-        </span>
-    </div>
-</section>
-
-<section class="panel product-form-guide">
-    <h2>Información prevista</h2>
-    <p class="panel-subtitle">
-        Referencia visual de los datos que deberá contemplar el formulario.
-    </p>
-
-    <div class="product-info-grid">
-        <article class="product-info-item">
-            <strong>Identificación</strong>
-            <p>Nombre del producto y código SKU.</p>
-        </article>
-
-        <article class="product-info-item">
-            <strong>Clasificación</strong>
-            <p>Categoría y marca del producto.</p>
-        </article>
-
-        <article class="product-info-item">
-            <strong>Información comercial</strong>
-            <p>Precio y estado del producto.</p>
-        </article>
-
-        <article class="product-info-item">
-            <strong>Control de stock</strong>
-            <p>Información necesaria para gestionar las existencias.</p>
-        </article>
-    </div>
+    <h2>Información del producto</h2>
+    <p class="panel-subtitle">Los campos marcados con * son obligatorios. El SKU debe ser único.</p>
+    <form method="post" class="product-form" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+        {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span>*</span>{% endif %}</label>
+                
+                {{ field }}
+                {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+                {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+            </div>
+        {% endfor %}
+        <div class="filter-actions">
+            <button type="submit" class="button button-primary">Guardar producto</button>
+            <a href="{% url 'inventario:productos_lista' %}" class="button button-secondary">Cancelar</a>
+        </div>
+    </form>
 </section>
 {% endblock %}

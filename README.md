@@ -683,3 +683,31 @@ El README debe actualizarse cuando se produzcan cambios relevantes en:
 La documentación debe describir el estado real del repositorio. Si una instrucción deja de ser válida o una funcionalidad cambia, se debe corregir el README en el mismo ciclo de trabajo en que se incorpora el cambio.
 
 Este documento es la referencia inicial para instalar el proyecto y comprender su organización. Las decisiones técnicas específicas que todavía no estén implementadas deben acordarse y registrarse a medida que avance el desarrollo.
+
+
+## Implementación Integrante 2: CRUD de productos
+
+Se agregó la funcionalidad de productos sobre las tablas MySQL existentes (`producto`, `categoria_producto`, `marca` y `producto_precio`). Los modelos usan `managed = False` para evitar que las migraciones de Django intenten crear o alterar esas tablas existentes.
+
+### Archivos implementados/modificados
+
+- `inventario/models.py`: modelos Django mapeados a las tablas existentes.
+- `inventario/forms.py`: formulario con campos obligatorios, precio no negativo y validación de SKU duplicado.
+- `inventario/views.py`: listado con búsqueda y filtros, registro, edición, actualización de precio y desactivación segura.
+- `inventario/urls.py`: rutas para listado, nuevo, editar y desactivar.
+- `inventario/admin.py`: modelos disponibles en el administrador de Django.
+- `templates/inventario/productos_lista.html`: catálogo conectado a los productos de la base de datos.
+- `templates/inventario/producto_form.html`: formulario real para crear y editar.
+- `static/css/inventario/productos.css`: estilos del catálogo, filtros, tabla, mensajes y estados.
+- `static/css/inventario/producto_form.css`: estilos del formulario.
+
+### Cómo probarlo
+
+1. Configurar las variables `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST` y `DB_PORT` en `.env` (no subir ese archivo a Git).
+2. Instalar dependencias con `python -m pip install -r requirements.txt`.
+3. Ejecutar `python manage.py check`.
+4. Ejecutar `python manage.py runserver`.
+5. Iniciar sesión y abrir `/productos/`.
+6. Verificar que existan categorías activas y marcas activas para poder registrar un producto.
+
+No se agregaron migraciones para las cuatro tablas de negocio porque se asume que ya existen en la base de datos compartida. La conexión real depende de las credenciales del entorno local.
