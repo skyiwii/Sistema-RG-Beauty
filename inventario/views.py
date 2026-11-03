@@ -1,16 +1,34 @@
 import logging
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, connection, transaction
 from django.db.models import Q, Prefetch
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.utils.dateparse import parse_date
+from django.views.decorators.http import require_GET, require_POST
 
-from .forms import CategoriaProductoForm, MarcaForm, ProductoForm
-from .models import CategoriaProducto, Marca, Producto, ProductoPrecio
+from .forms import (
+    AjusteStockForm,
+    CategoriaProductoForm,
+    MarcaForm,
+    MovimientoStockForm,
+    ProductoForm,
+)
+from .models import (
+    CategoriaProducto,
+    DetalleMovimiento,
+    Inventario,
+    Marca,
+    Producto,
+    ProductoPrecio,
+    TipoMovimiento,
+    UsuarioNegocio,
+)
+from .services import MovimientoStockError, registrar_movimiento_stock
 
 logger = logging.getLogger(__name__)
 
@@ -38,14 +56,16 @@ def dashboard(request):
     productos_agotados = resultado_stock[1] or 0
     productos_stock_bajo = resultado_stock[2] or 0
 
-    # 3. Obtener los últimos movimientos recientes (ej. últimos 5)
-    # (Dependiendo de cómo se llame tu modelo de movimientos en la BD, si existe)
-    
+    movimientos_recientes = DetalleMovimiento.objects.select_related(
+        "producto", "movimiento__tipo_movimiento"
+    ).order_by("-movimiento__fecha", "-pk")[:5]
+
     context = {
         "total_productos": total_productos,
         "total_stock": total_stock,
         "productos_agotados": productos_agotados,
         "productos_stock_bajo": productos_stock_bajo,
+        "movimientos_recientes": movimientos_recientes,
     }
     return render(request, "dashboard/index.html", context)
 
@@ -345,95 +365,191 @@ def stock_lista(request):
 
 
 @login_required
+@require_GET
+def stock_actual(request):
+    try:
+        inventario_id = int(request.GET.get("inventario", ""))
+        producto_id = int(request.GET.get("producto", ""))
+        if inventario_id <= 0 or producto_id <= 0:
+            raise ValueError
+    except ValueError:
+        return JsonResponse(
+            {"error": "Selecciona un inventario y un producto válidos."},
+            status=400,
+        )
+
+    try:
+        Inventario.objects.only("pk").get(pk=inventario_id, activo=True)
+        Producto.objects.only("pk").get(pk=producto_id, activo=True)
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT cantidad_actual
+                FROM stock
+                WHERE id_inventario = %s AND id_producto = %s
+                """,
+                [inventario_id, producto_id],
+            )
+            fila_stock = cursor.fetchone()
+    except (Inventario.DoesNotExist, Producto.DoesNotExist):
+        return JsonResponse(
+            {"error": "El inventario o el producto seleccionado ya no está activo."},
+            status=404,
+        )
+    except DatabaseError:
+        logger.exception("Error consultando stock actual")
+        return JsonResponse(
+            {"error": "No se pudo consultar el stock. Comprueba la conexión y las tablas de MySQL."},
+            status=503,
+        )
+
+    return JsonResponse({"stock": int(fila_stock[0]) if fila_stock else 0})
+
+
+@login_required
 def movimiento_form(request):
-    return render(request, "inventario/movimiento_form.html")
+    configuracion_lista = False
+    responsable_configurado = UsuarioNegocio.objects.filter(
+        nombre_usuario=request.user.get_username(),
+        activo=True,
+    ).exists()
+    if request.method == "POST":
+        form = MovimientoStockForm(request.POST)
+        configuracion_lista = (
+            form.fields["inventario"].queryset.exists()
+            and form.fields["producto"].queryset.exists()
+            and form.fields["tipo_movimiento"].queryset.count() == 2
+        )
+        if form.is_valid():
+            try:
+                resultado = registrar_movimiento_stock(
+                    inventario_id=form.cleaned_data["inventario"].pk,
+                    producto_id=form.cleaned_data["producto"].pk,
+                    tipo=form.cleaned_data["tipo_movimiento"].nombre,
+                    cantidad=form.cleaned_data["cantidad"],
+                    motivo=form.cleaned_data["motivo"],
+                    observacion=form.cleaned_data["observacion"],
+                    nombre_usuario=request.user.get_username(),
+                )
+            except MovimientoStockError as exc:
+                form.add_error(None, str(exc))
+            except DatabaseError:
+                logger.exception("Error registrando movimiento de stock")
+                form.add_error(
+                    None,
+                    "No se pudo registrar el movimiento. Comprueba la conexión y las tablas de MySQL.",
+                )
+            else:
+                messages.success(
+                    request,
+                    f"Movimiento registrado. Stock actualizado de "
+                    f"{resultado.stock_anterior} a {resultado.stock_nuevo} unidades.",
+                )
+                return redirect("inventario:movimiento_form")
+    else:
+        form = MovimientoStockForm()
+        configuracion_lista = (
+            form.fields["inventario"].queryset.exists()
+            and form.fields["producto"].queryset.exists()
+            and form.fields["tipo_movimiento"].queryset.count() == 2
+        )
+
+    return render(request, "inventario/movimiento_form.html", {
+        "form": form,
+        "configuracion_lista": configuracion_lista,
+        "responsable_configurado": responsable_configurado,
+    })
 
 
 @login_required
 def ajustes_stock(request):
-    return render(request, "inventario/ajustes_stock.html")
+    configuracion_lista = False
+    responsable_configurado = UsuarioNegocio.objects.filter(
+        nombre_usuario=request.user.get_username(),
+        activo=True,
+    ).exists()
+    if request.method == "POST":
+        form = AjusteStockForm(request.POST)
+        configuracion_lista = (
+            form.fields["inventario"].queryset.exists()
+            and form.fields["producto"].queryset.exists()
+            and TipoMovimiento.objects.filter(nombre="Ajuste", afecta_stock=True).exists()
+        )
+        if form.is_valid():
+            try:
+                resultado = registrar_movimiento_stock(
+                    inventario_id=form.cleaned_data["inventario"].pk,
+                    producto_id=form.cleaned_data["producto"].pk,
+                    tipo="Ajuste",
+                    cantidad=form.cleaned_data["cantidad"],
+                    motivo=form.cleaned_data["motivo"],
+                    observacion=form.cleaned_data["observacion"],
+                    nombre_usuario=request.user.get_username(),
+                )
+            except MovimientoStockError as exc:
+                form.add_error(None, str(exc))
+            except DatabaseError:
+                logger.exception("Error registrando ajuste de stock")
+                form.add_error(
+                    None,
+                    "No se pudo registrar el ajuste. Comprueba la conexión y las tablas de MySQL.",
+                )
+            else:
+                if resultado.movimiento is None:
+                    messages.info(request, "El stock ya coincide con el conteo físico; no se registró ningún ajuste.")
+                    return redirect("inventario:ajustes_stock")
+                else:
+                    messages.success(
+                        request,
+                        f"Ajuste registrado. Stock actualizado de "
+                        f"{resultado.stock_anterior} a {resultado.stock_nuevo} unidades.",
+                    )
+                    return redirect("inventario:ajustes_stock")
+    else:
+        form = AjusteStockForm()
+        configuracion_lista = (
+            form.fields["inventario"].queryset.exists()
+            and form.fields["producto"].queryset.exists()
+            and TipoMovimiento.objects.filter(nombre="Ajuste", afecta_stock=True).exists()
+        )
+
+    return render(request, "inventario/ajustes_stock.html", {
+        "form": form,
+        "configuracion_lista": configuracion_lista,
+        "responsable_configurado": responsable_configurado,
+    })
 
 
 @login_required
 def movimientos_historial(request):
-    # Capturamos los filtros enviados por la URL (GET)
-    producto_id = request.GET.get("producto", "").strip()
-    tipo_movimiento = request.GET.get("tipo", "").strip()
-    fecha_desde = request.GET.get("fecha_desde", "").strip()
-    fecha_hasta = request.GET.get("fecha_hasta", "").strip()
-
-    # Construimos la consulta SQL base para el historial de movimientos
-    query = """
-        SELECT 
-            m.id_movimiento,
-            p.nombre AS producto_nombre,
-            p.sku,
-            t.nombre AS tipo_movimiento,
-            m.cantidad,
-            m.stock_anterior,
-            m.stock_nuevo,
-            m.motivo,
-            m.fecha_movimiento,
-            m.nombre_usuario
-        FROM movimiento_stock m
-        JOIN producto p ON m.id_producto = p.id_producto
-        JOIN tipo_movimiento t ON m.id_tipo_movimiento = t.id_tipo_movimiento
-        WHERE 1=1
-    """
-    parametros = []
-
-    # Aplicamos filtros de manera dinámica según lo que seleccione el usuario
-    if producto_id.isdigit():
-        query += " AND m.id_producto = %s"
-        parametros.append(int(producto_id))
-
-    if tipo_movimiento:
-        query += " AND t.nombre = %s"
-        parametros.append(tipo_movimiento)
-
-    if fecha_desde:
-        query += " AND m.fecha_movimiento >= %s"
-        parametros.append(fecha_desde)
-
-    if fecha_hasta:
-        query += " AND m.fecha_movimiento <= %s"
-        parametros.append(fecha_hasta + " 23:59:59") # Incluir todo el día final
-
-    query += " ORDER BY m.fecha_movimiento DESC LIMIT 100"
-
-    with connection.cursor() as cursor:
-        cursor.execute(query, parametros)
-        filas = cursor.fetchall()
-
-    # Transformamos el resultado en una lista de diccionarios para el HTML
-    historial = []
-    for fila in filas:
-        historial.append({
-            "id": fila[0],
-            "producto": fila[1],
-            "sku": fila[2],
-            "tipo": fila[3],
-            "cantidad": fila[4],
-            "stock_anterior": fila[5],
-            "stock_nuevo": fila[6],
-            "motivo": fila[7],
-            "fecha": fila[8],
-            "usuario": fila[9],
-        })
-
-    # Obtenemos listas para poblar los selectores de los filtros en la vista
-    productos = Producto.objects.filter(activo=True).order_by("nombre")
-    
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT nombre FROM tipo_movimiento")
-        tipos_movimiento = [row[0] for row in cursor.fetchall()]
-
+    buscar = request.GET.get("buscar", "").strip()
+    tipo = request.GET.get("tipo", "").strip()
+    fecha_desde = request.GET.get("fecha_desde", "")
+    fecha_hasta = request.GET.get("fecha_hasta", "")
+    historial = DetalleMovimiento.objects.select_related(
+        "producto", "movimiento__tipo_movimiento", "movimiento__usuario"
+    ).order_by("-movimiento__fecha", "-pk")
+    if buscar:
+        historial = historial.filter(Q(producto__nombre__icontains=buscar) | Q(producto__sku__icontains=buscar))
+    if tipo:
+        historial = historial.filter(movimiento__tipo_movimiento__nombre=tipo)
+    for valor, lookup in ((fecha_desde, "gte"), (fecha_hasta, "lt")):
+        try:
+            fecha = parse_date(valor)
+        except ValueError:
+            fecha = None
+        if fecha:
+            if lookup == "lt":
+                if fecha == datetime.max.date():
+                    continue
+                fecha += timedelta(days=1)
+            limite = timezone.make_aware(datetime.combine(fecha, time.min))
+            historial = historial.filter(**{f"movimiento__fecha__{lookup}": limite})
     return render(request, "inventario/movimientos_historial.html", {
-        "historial": historial,
-        "productos": productos,
-        "tipos_movimiento": tipos_movimiento,
-        "filtro_producto": producto_id,
-        "filtro_tipo": tipo_movimiento,
+        "historial": historial[:100],
+        "tipos_movimiento": TipoMovimiento.objects.all(),
+        "buscar": buscar,
+        "filtro_tipo": tipo,
         "filtro_fecha_desde": fecha_desde,
         "filtro_fecha_hasta": fecha_hasta,
     })

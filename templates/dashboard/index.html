@@ -143,9 +143,27 @@
             Últimas operaciones registradas.
         </p>
 
-        <div class="empty-state">
-            Los movimientos aparecerán cuando exista información real.
+        {% if movimientos_recientes %}
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Stock</th></tr>
+                </thead>
+                <tbody>
+                    {% for detalle in movimientos_recientes %}
+                    <tr>
+                        <td>{{ detalle.movimiento.fecha|date:"d/m/Y H:i" }}</td>
+                        <td>{{ detalle.producto }}</td>
+                        <td>{{ detalle.movimiento.tipo_movimiento }}</td>
+                        <td>{{ detalle.stock_anterior }} → {{ detalle.stock_nuevo }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
+        {% else %}
+        <div class="empty-state">Aún no hay movimientos registrados.</div>
+        {% endif %}
 
         <a class="button button-secondary"
            href="{% url 'inventario:movimientos_historial' %}">

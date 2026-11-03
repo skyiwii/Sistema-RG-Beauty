@@ -15,69 +15,40 @@
     </div>
 </section>
 
-<section class="stats-grid">
-    <article class="stat-card highlight">
-        <div class="stat-label">Movimientos registrados</div>
-        <div class="stat-value">—</div>
-        <div class="stat-description">Total de operaciones del inventario</div>
-    </article>
-
-    <article class="stat-card">
-        <div class="stat-label">Entradas</div>
-        <div class="stat-value">—</div>
-        <div class="stat-description">Movimientos de ingreso de unidades</div>
-    </article>
-
-    <article class="stat-card">
-        <div class="stat-label">Salidas</div>
-        <div class="stat-value">—</div>
-        <div class="stat-description">Movimientos de egreso de unidades</div>
-    </article>
-
-    <article class="stat-card">
-        <div class="stat-label">Ajustes</div>
-        <div class="stat-value">—</div>
-        <div class="stat-description">Correcciones de existencias</div>
-    </article>
-</section>
-
 <section class="panel history-filters-panel">
     <h2>Consultar movimientos</h2>
     <p class="panel-subtitle">
-        Espacio preparado para filtrar el historial de operaciones.
+        Se muestran hasta 100 resultados, del más reciente al más antiguo.
     </p>
 
-    <div class="history-filters">
+    <form class="history-filters" method="get">
         <div class="form-group">
             <label for="buscar-movimiento">Buscar producto</label>
             <input
                 type="search"
                 id="buscar-movimiento"
-                placeholder="Nombre o código SKU"
-                disabled
+                placeholder="Nombre o código SKU" name="buscar" value="{{ buscar }}"
+
             >
         </div>
 
         <div class="form-group">
             <label for="tipo-movimiento">Tipo de movimiento</label>
-            <select id="tipo-movimiento" disabled>
+            <select id="tipo-movimiento" name="tipo">
                 <option value="">Todos los movimientos</option>
-                <option value="entrada">Entrada</option>
-                <option value="salida">Salida</option>
-                <option value="ajuste">Ajuste</option>
-            </select>
+                {% for tipo in tipos_movimiento %}<option value="{{ tipo.nombre }}" {% if tipo.nombre == filtro_tipo %}selected{% endif %}>{{ tipo.nombre }}</option>{% endfor %}</select>
         </div>
 
         <div class="form-group">
             <label for="fecha-desde">Desde</label>
-            <input type="date" id="fecha-desde" disabled>
+            <input type="date" id="fecha-desde" name="fecha_desde" value="{{ filtro_fecha_desde }}">
         </div>
 
         <div class="form-group">
             <label for="fecha-hasta">Hasta</label>
-            <input type="date" id="fecha-hasta" disabled>
+            <input type="date" id="fecha-hasta" name="fecha_hasta" value="{{ filtro_fecha_hasta }}">
         </div>
-    </div>
+        <button type="submit" class="button button-primary">Filtrar</button></form>
 </section>
 
 <section class="panel history-table-panel">
@@ -104,17 +75,18 @@
             </thead>
 
             <tbody>
+                {% for detalle in historial %}
                 <tr>
-                    <td colspan="6">
-                        <div class="empty-state">
-                            <strong>No hay movimientos para mostrar</strong>
-                            <p>
-                                El historial aparecerá cuando se conecten
-                                los registros reales del inventario.
-                            </p>
-                        </div>
-                    </td>
+                    <td>{{ detalle.movimiento.fecha|date:"d/m/Y H:i" }}</td>
+                    <td>{{ detalle.producto }}</td>
+                    <td>{{ detalle.movimiento.tipo_movimiento }}</td>
+                    <td>{{ detalle.cantidad }} ({{ detalle.stock_anterior }} → {{ detalle.stock_nuevo }})</td>
+                    <td>{{ detalle.movimiento.motivo }}</td>
+                    <td>{{ detalle.movimiento.usuario }}</td>
                 </tr>
+                {% empty %}
+                <tr><td colspan="6">No hay movimientos para mostrar.</td></tr>
+                {% endfor %}
             </tbody>
         </table>
     </div>
