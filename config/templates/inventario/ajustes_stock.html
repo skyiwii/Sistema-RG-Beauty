@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Ajustes de stock{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/inventario/ajustes.css' %}">
+<link rel="stylesheet" href="{% static 'css/inventario/stock_preview.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+    <div>
+        <h1>Ajustes de stock</h1>
+        <p>Corrige las existencias a partir del conteo físico del inventario.</p>
+    </div>
+    <a href="{% url 'inventario:movimiento_form' %}" class="button button-secondary">Registrar entrada o salida</a>
+</section>
+
+{% if messages %}
+<section class="messages-container">
+    {% for message in messages %}<div class="message {{ message.tags }}">{{ message }}</div>{% endfor %}
+</section>
+{% endif %}
+
+<section class="panel adjustment-info-panel">
+    <h2>¿Cómo funciona un ajuste?</h2>
+    <p class="panel-subtitle">
+        Ingresa el total de unidades que encontraste físicamente. El sistema lo compara con el stock registrado y guarda la diferencia, el valor anterior y el nuevo.
+    </p>
+
+    <div class="adjustment-notice">
+        <span class="adjustment-notice-icon">i</span>
+        <p>
+            Todo ajuste requiere un motivo. La fecha y el usuario responsable se registran automáticamente.
+        </p>
+    </div>
+</section>
+
+<section class="panel adjustment-form-panel">
+    <h2>Registrar ajuste</h2>
+    {% if not configuracion_lista %}
+    <div class="message error">Falta configurar un inventario activo, el tipo de ajuste o productos activos. Ejecuta <code>python manage.py seed_stock</code> y revisa el catálogo de productos.</div>
+    {% endif %}
+    {% if not responsable_configurado %}
+    <div class="message error">Tu usuario de Django debe tener un usuario activo con el mismo nombre en la tabla de usuarios del negocio antes de registrar ajustes.</div>
+    {% endif %}
+    <section
+        class="stock-preview"
+        data-stock-preview
+        data-mode="adjustment"
+        data-stock-url="{% url 'inventario:stock_actual' %}"
+        aria-live="polite"
+    >
+        <h3>Stock del producto</h3>
+        <p data-current-stock>Selecciona un inventario y un producto para consultar sus existencias.</p>
+        <p data-stock-result></p>
+        <p class="stock-preview-status" data-stock-status role="status"></p>
+    </section>
+    <form method="post" class="stock-form" novalidate data-stock-form>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+        {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span>*</span>{% endif %}</label>
+                {{ field }}
+                {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+                {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+            </div>
+        {% endfor %}
+        <div class="filter-actions">
+            <button type="submit" class="button button-primary">Guardar ajuste</button>
+        </div>
+    </form>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/inventario/stock_preview.js' %}" defer></script>
+{% endblock %}
