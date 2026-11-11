@@ -1,5 +1,7 @@
 import logging
-from datetime import timedelta
+import calendar
+from collections import defaultdict
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 from django.contrib import messages
@@ -78,6 +80,8 @@ def dashboard(request):
     stats = None
     alertas_stock = []
     movimientos_recientes = []
+    grafico_movimientos = []
+    grafico_maximo = 1
 
     try:
         stocks_activos = Stock.objects.filter(
@@ -115,6 +119,56 @@ def dashboard(request):
                     "-id_detalle_movimiento",
                 )[:5]
             )
+
+            # Gráfico dinámico: mes actual y los cinco meses siguientes.
+            # Los valores se calculan desde los movimientos reales guardados en MySQL.
+            fecha_actual = timezone.localdate()
+            meses = []
+            for desplazamiento in range(6):
+                indice_mes = fecha_actual.month - 1 + desplazamiento
+                anio = fecha_actual.year + indice_mes // 12
+                mes = indice_mes % 12 + 1
+                meses.append((anio, mes))
+
+            primer_anio, primer_mes = meses[0]
+            ultimo_anio, ultimo_mes = meses[-1]
+            inicio_periodo = timezone.make_aware(datetime(primer_anio, primer_mes, 1, 0, 0, 0))
+            if ultimo_mes == 12:
+                fin_periodo = timezone.make_aware(datetime(ultimo_anio + 1, 1, 1, 0, 0, 0))
+            else:
+                fin_periodo = timezone.make_aware(datetime(ultimo_anio, ultimo_mes + 1, 1, 0, 0, 0))
+
+            acumulados = defaultdict(lambda: {"entradas": 0, "salidas": 0})
+            detalles_grafico = DetalleMovimiento.objects.select_related(
+                "movimiento__tipo_movimiento"
+            ).filter(
+                movimiento__fecha__gte=inicio_periodo,
+                movimiento__fecha__lt=fin_periodo,
+            )
+            for detalle in detalles_grafico.iterator():
+                fecha = timezone.localtime(detalle.movimiento.fecha)
+                clave = (fecha.year, fecha.month)
+                tipo = detalle.movimiento.tipo_movimiento.nombre.strip().lower()
+                if tipo == "entrada":
+                    acumulados[clave]["entradas"] += detalle.cantidad
+                elif tipo == "salida":
+                    acumulados[clave]["salidas"] += detalle.cantidad
+
+            nombres_meses = (
+                "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+            )
+            for anio_mes in meses:
+                valores = acumulados[anio_mes]
+                grafico_movimientos.append({
+                    "mes": f"{nombres_meses[anio_mes[1] - 1]} {anio_mes[0]}",
+                    "entradas": valores["entradas"],
+                    "salidas": valores["salidas"],
+                })
+            grafico_maximo = max(
+                [max(item["entradas"], item["salidas"]) for item in grafico_movimientos] or [1]
+            ) or 1
+
     except DatabaseError:
         logger.exception("Error cargando los indicadores del dashboard")
         dashboard_error = (
@@ -131,6 +185,8 @@ def dashboard(request):
         "low_stock_threshold": LOW_STOCK_THRESHOLD,
         "alertas_stock": alertas_stock,
         "movimientos_recientes": movimientos_recientes,
+        "grafico_movimientos": grafico_movimientos,
+        "grafico_maximo": grafico_maximo,
     }
     return render(request, "dashboard/index.html", context)
 
@@ -1154,3 +1210,4 @@ def movimientos_historial(request):
         "filter_query": filter_params.urlencode(),
     })
  
+
