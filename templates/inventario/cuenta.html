@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Mi cuenta{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/inventario/cuenta.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+    <div>
+        <h1>Mi cuenta</h1>
+        <p>Consulta y actualiza tus datos de acceso al sistema.</p>
+    </div>
+</section>
+
+<section class="panel account-panel">
+    <div class="account-summary">
+        <div>
+            <span class="account-label">Nombre de usuario</span>
+            <strong>{{ user.username }}</strong>
+        </div>
+        <div>
+            <span class="account-label">Tipo de cuenta</span>
+            <strong>{{ rol_cuenta }}</strong>
+        </div>
+    </div>
+
+    <form method="post" class="account-form" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+        {% for field in form %}
+        <div class="form-group">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+        </div>
+        {% endfor %}
+        <div class="filter-actions">
+            <button type="submit" class="button button-primary">Guardar cambios</button>
+            <a href="{% url 'inventario:cambiar_contrasena' %}" class="button button-secondary">Cambiar contraseña</a>
+        </div>
+    </form>
+</section>
+
+{% if puede_administrar_cuentas %}
+<section class="panel">
+    <div class="page-heading">
+        <div>
+            <h2>Administración del equipo</h2>
+            <p>Solo tú puedes administrar las cuentas y revisar sus accesos.</p>
+        </div>
+    </div>
+    <div class="account-summary">
+        <div>
+            <span class="account-label">Cuentas de asistentes activas</span>
+            <strong>{{ cuentas_activas }}</strong>
+        </div>
+    </div>
+    <div class="filter-actions">
+        <a href="{% url 'inventario:cuentas_equipo' %}" class="button button-primary">Gestionar cuentas</a>
+        {% if puede_ver_historial_accesos %}
+        <a href="{% url 'inventario:historial_accesos' %}" class="button button-secondary">Ver historial de accesos</a>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
+
+{% if puede_activar_cuenta_administradora %}
+<section class="panel">
+    <h2>Preparar tu cuenta para el uso diario</h2>
+    <p class="panel-subtitle">
+        Esta cuenta todavía tiene permisos técnicos de Django. Puedes convertirla en
+        Administradora de la aplicación para gestionar la tienda desde aquí sin
+        necesitar acceso a Django Admin.
+    </p>
+    <form method="post" action="{% url 'inventario:activar_cuenta_administradora' %}">
+        {% csrf_token %}
+        <button type="submit" class="button button-primary">
+            Usar esta cuenta como Administradora
+        </button>
+    </form>
+</section>
+{% endif %}
+{% endblock %}
