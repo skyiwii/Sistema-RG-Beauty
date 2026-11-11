@@ -73,6 +73,7 @@ def _delete_product_image_file(file_name):
 
 @login_required
 def dashboard(request):
+<<<<<<< HEAD
     _verificar_permiso(request.user, "inventario.view_stock")
     dashboard_error = None
     stats = None
@@ -131,6 +132,37 @@ def dashboard(request):
         "low_stock_threshold": LOW_STOCK_THRESHOLD,
         "alertas_stock": alertas_stock,
         "movimientos_recientes": movimientos_recientes,
+=======
+    # 1. Total de productos activos
+    total_productos = Producto.objects.filter(activo=True).count()
+    
+    # 2. Consultar el stock total por producto para identificar alertas
+    # (Usamos una consulta SQL o conexión si el stock está en esa tabla)
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT 
+                SUM(cantidad_actual) as total_stock,
+                SUM(CASE WHEN cantidad_actual = 0 THEN 1 ELSE 0 END) as agotados,
+                SUM(CASE WHEN cantidad_actual > 0 AND cantidad_actual <= 5 THEN 1 ELSE 0 END) as stock_bajo
+            FROM stock
+            """
+        )
+        resultado_stock = cursor.fetchone()
+        
+    total_stock = resultado_stock[0] or 0
+    productos_agotados = resultado_stock[1] or 0
+    productos_stock_bajo = resultado_stock[2] or 0
+
+    # 3. Obtener los últimos movimientos recientes (ej. últimos 5)
+    # (Dependiendo de cómo se llame tu modelo de movimientos en la BD, si existe)
+    
+    context = {
+        "total_productos": total_productos,
+        "total_stock": total_stock,
+        "productos_agotados": productos_agotados,
+        "productos_stock_bajo": productos_stock_bajo,
+>>>>>>> 59c7c5c16ddcc675f3ae02710a1075a8f581b363
     }
     return render(request, "dashboard/index.html", context)
 
@@ -861,6 +893,7 @@ def marca_eliminar(request, id_marca):
 
 @login_required
 def stock_lista(request):
+<<<<<<< HEAD
     _verificar_permiso(request.user, "inventario.view_stock")
     form = ExistenciasFiltroForm(request.GET)
     stock_rows = []
@@ -977,6 +1010,59 @@ def stock_actual(request):
         )
 
     return JsonResponse({"stock": cantidad_actual if cantidad_actual is not None else 0})
+=======
+    buscar = request.GET.get("buscar", "").strip()
+    estado_stock = request.GET.get("estado_stock", "").strip()
+
+    # Consulta uniendo Producto y la tabla de stock para obtener las cantidades reales
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT 
+                p.id_producto,
+                p.sku,
+                p.nombre,
+                COALESCE(s.cantidad_actual, 0) AS cantidad_actual,
+                i.nombre AS nombre_inventario
+            FROM producto p
+            LEFT JOIN stock s ON p.id_producto = s.id_producto
+            LEFT JOIN inventario i ON s.id_inventario = i.id_inventario
+            WHERE p.activo = 1
+            """
+        )
+        filas = cursor.fetchall()
+
+    # Convertimos los resultados en una lista de diccionarios para facilitar la lectura en el HTML
+    productos_stock = []
+    for fila in filas:
+        cantidad = fila[3]
+        # Definimos la lógica de alerta según la cantidad
+        if cantidad == 0:
+            estado = "Agotado"
+            clase_badge = "danger"
+        elif cantidad <= 5:
+            estado = "Stock Bajo"
+            clase_badge = "warning"
+        else:
+            estado = "Disponible"
+            clase_badge = "success"
+
+        productos_stock.append({
+            "id_producto": fila[0],
+            "sku": fila[1],
+            "nombre": fila[2],
+            "cantidad_actual": cantidad,
+            "inventario": fila[4] or "General",
+            "estado": estado,
+            "clase_badge": clase_badge,
+        })
+
+    return render(request, "inventario/stock_lista.html", {
+        "productos_stock": productos_stock,
+        "buscar": buscar,
+        "estado_stock_seleccionado": estado_stock,
+    })
+>>>>>>> 59c7c5c16ddcc675f3ae02710a1075a8f581b363
 
 
 @login_required
@@ -1091,6 +1177,7 @@ def ajustes_stock(request):
 
 @login_required
 def movimientos_historial(request):
+<<<<<<< HEAD
     _verificar_permiso(request.user, "inventario.view_movimientoinventario")
     form = HistorialFiltroForm(request.GET)
     error = None
@@ -1154,3 +1241,86 @@ def movimientos_historial(request):
         "filter_query": filter_params.urlencode(),
     })
  
+=======
+    # Capturamos los filtros enviados por la URL (GET)
+    producto_id = request.GET.get("producto", "").strip()
+    tipo_movimiento = request.GET.get("tipo", "").strip()
+    fecha_desde = request.GET.get("fecha_desde", "").strip()
+    fecha_hasta = request.GET.get("fecha_hasta", "").strip()
+
+    # Construimos la consulta SQL base para el historial de movimientos
+    query = """
+        SELECT 
+            m.id_movimiento,
+            p.nombre AS producto_nombre,
+            p.sku,
+            t.nombre AS tipo_movimiento,
+            m.cantidad,
+            m.stock_anterior,
+            m.stock_nuevo,
+            m.motivo,
+            m.fecha_movimiento,
+            m.nombre_usuario
+        FROM movimiento_stock m
+        JOIN producto p ON m.id_producto = p.id_producto
+        JOIN tipo_movimiento t ON m.id_tipo_movimiento = t.id_tipo_movimiento
+        WHERE 1=1
+    """
+    parametros = []
+
+    # Aplicamos filtros de manera dinámica según lo que seleccione el usuario
+    if producto_id.isdigit():
+        query += " AND m.id_producto = %s"
+        parametros.append(int(producto_id))
+
+    if tipo_movimiento:
+        query += " AND t.nombre = %s"
+        parametros.append(tipo_movimiento)
+
+    if fecha_desde:
+        query += " AND m.fecha_movimiento >= %s"
+        parametros.append(fecha_desde)
+
+    if fecha_hasta:
+        query += " AND m.fecha_movimiento <= %s"
+        parametros.append(fecha_hasta + " 23:59:59") # Incluir todo el día final
+
+    query += " ORDER BY m.fecha_movimiento DESC LIMIT 100"
+
+    with connection.cursor() as cursor:
+        cursor.execute(query, parametros)
+        filas = cursor.fetchall()
+
+    # Transformamos el resultado en una lista de diccionarios para el HTML
+    historial = []
+    for fila in filas:
+        historial.append({
+            "id": fila[0],
+            "producto": fila[1],
+            "sku": fila[2],
+            "tipo": fila[3],
+            "cantidad": fila[4],
+            "stock_anterior": fila[5],
+            "stock_nuevo": fila[6],
+            "motivo": fila[7],
+            "fecha": fila[8],
+            "usuario": fila[9],
+        })
+
+    # Obtenemos listas para poblar los selectores de los filtros en la vista
+    productos = Producto.objects.filter(activo=True).order_by("nombre")
+    
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT nombre FROM tipo_movimiento")
+        tipos_movimiento = [row[0] for row in cursor.fetchall()]
+
+    return render(request, "inventario/movimientos_historial.html", {
+        "historial": historial,
+        "productos": productos,
+        "tipos_movimiento": tipos_movimiento,
+        "filtro_producto": producto_id,
+        "filtro_tipo": tipo_movimiento,
+        "filtro_fecha_desde": fecha_desde,
+        "filtro_fecha_hasta": fecha_hasta,
+    })
+>>>>>>> 59c7c5c16ddcc675f3ae02710a1075a8f581b363
