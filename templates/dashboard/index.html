@@ -1,6 +1,9 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Inicio{% endblock %}
+
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/inventario/dashboard.css' %}">{% endblock %}
 
 {% block content %}
 <div class="page-heading">
@@ -33,6 +36,27 @@
         <div class="stat-value">{% if productos_agotados != None %}{{ productos_agotados }}{% else %}—{% endif %}</div>
         <div class="stat-description">Productos con stock en cero</div>
     </article>
+</section>
+
+<section class="dashboard-chart panel">
+    <div class="chart-heading">
+        <div>
+            <h2>Movimiento de inventario</h2>
+            <p class="panel-subtitle">Entradas y salidas del mes actual y los próximos cinco meses.</p>
+        </div>
+        <div class="chart-legend"><span><i class="legend-entry"></i> Entradas</span><span><i class="legend-exit"></i> Salidas</span></div>
+    </div>
+    <div class="chart-area" role="img" aria-label="Gráfico de entradas y salidas de inventario del mes actual y los próximos cinco meses">
+        {% for item in grafico_movimientos %}
+        <div class="chart-month">
+            <div class="chart-bars">
+                <div class="chart-bar bar-entry" style="height:{% widthratio item.entradas grafico_maximo 100 %}%" title="{{ item.entradas }} entradas"><span>{{ item.entradas }}</span></div>
+                <div class="chart-bar bar-exit" style="height:{% widthratio item.salidas grafico_maximo 100 %}%" title="{{ item.salidas }} salidas"><span>{{ item.salidas }}</span></div>
+            </div>
+            <small>{{ item.mes }}</small>
+        </div>
+        {% empty %}<p class="empty-state">No hay datos de movimientos para mostrar.</p>{% endfor %}
+    </div>
 </section>
 
 <h2 class="section-title">Acciones rápidas</h2>
