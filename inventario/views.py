@@ -82,6 +82,36 @@ def dashboard(request):
     movimientos_recientes = []
     grafico_movimientos = []
     grafico_maximo = 1
+    productos_mas_vendidos = []
+    productos_menos_vendidos = []
+    producto_mayor_entrada = None
+    producto_mayor_salida = None
+
+    fecha_actual = timezone.localdate()
+    try:
+        anio_solicitado = int(request.GET.get("anio", fecha_actual.year))
+    except (TypeError, ValueError):
+        anio_solicitado = fecha_actual.year
+    if anio_solicitado < 2000 or anio_solicitado > fecha_actual.year + 5:
+        anio_solicitado = fecha_actual.year
+
+    try:
+        mes_solicitado = request.GET.get("mes", "")
+        mes_solicitado = int(mes_solicitado) if mes_solicitado else None
+    except (TypeError, ValueError):
+        mes_solicitado = None
+    if mes_solicitado is not None and not 1 <= mes_solicitado <= 12:
+        mes_solicitado = None
+
+    tipo_solicitado = request.GET.get("tipo", "ambos").lower()
+    if tipo_solicitado not in ("ambos", "entrada", "salida"):
+        tipo_solicitado = "ambos"
+
+    try:
+        producto_solicitado = request.GET.get("producto", "")
+        producto_solicitado = int(producto_solicitado) if producto_solicitado else None
+    except (TypeError, ValueError):
+        producto_solicitado = None
 
     try:
         stocks_activos = Stock.objects.filter(
@@ -98,78 +128,114 @@ def dashboard(request):
                     cantidad_actual__lte=LOW_STOCK_THRESHOLD,
                 ),
             ),
-            productos_agotados=Count(
-                "producto_id",
-                filter=Q(cantidad_actual=0),
-            ),
+            productos_agotados=Count("producto_id", filter=Q(cantidad_actual=0)),
         )
         alertas_stock = list(
             stocks_activos.select_related("producto", "inventario")
             .filter(cantidad_actual__lte=LOW_STOCK_THRESHOLD)
-            .order_by("cantidad_actual", "producto__nombre", "inventario__nombre")[:5]
+            .order_by("cantidad_actual", "producto__nombre", "inventario__nombre")[:8]
         )
+
         if request.user.has_perm("inventario.view_movimientoinventario"):
             movimientos_recientes = list(
                 DetalleMovimiento.objects.select_related(
-                    "producto",
-                    "movimiento__tipo_movimiento",
+                    "producto", "movimiento__tipo_movimiento"
                 ).order_by(
                     "-movimiento__fecha",
                     "-movimiento__id_movimiento",
                     "-id_detalle_movimiento",
-                )[:5]
+                )[:8]
             )
 
-            # Gráfico dinámico: mes actual y los cinco meses siguientes.
-            # Los valores se calculan desde los movimientos reales guardados en MySQL.
-            fecha_actual = timezone.localdate()
-            meses = []
-            for desplazamiento in range(6):
-                indice_mes = fecha_actual.month - 1 + desplazamiento
-                anio = fecha_actual.year + indice_mes // 12
-                mes = indice_mes % 12 + 1
-                meses.append((anio, mes))
-
-            primer_anio, primer_mes = meses[0]
-            ultimo_anio, ultimo_mes = meses[-1]
-            inicio_periodo = timezone.make_aware(datetime(primer_anio, primer_mes, 1, 0, 0, 0))
-            if ultimo_mes == 12:
-                fin_periodo = timezone.make_aware(datetime(ultimo_anio + 1, 1, 1, 0, 0, 0))
-            else:
-                fin_periodo = timezone.make_aware(datetime(ultimo_anio, ultimo_mes + 1, 1, 0, 0, 0))
-
-            acumulados = defaultdict(lambda: {"entradas": 0, "salidas": 0})
-            detalles_grafico = DetalleMovimiento.objects.select_related(
-                "movimiento__tipo_movimiento"
+            inicio_periodo = timezone.make_aware(datetime(anio_solicitado, 1, 1))
+            fin_periodo = timezone.make_aware(datetime(anio_solicitado + 1, 1, 1))
+            detalles_periodo = DetalleMovimiento.objects.select_related(
+                "producto", "movimiento__tipo_movimiento"
             ).filter(
                 movimiento__fecha__gte=inicio_periodo,
                 movimiento__fecha__lt=fin_periodo,
             )
-            for detalle in detalles_grafico.iterator():
-                fecha = timezone.localtime(detalle.movimiento.fecha)
-                clave = (fecha.year, fecha.month)
-                tipo = detalle.movimiento.tipo_movimiento.nombre.strip().lower()
-                if tipo == "entrada":
-                    acumulados[clave]["entradas"] += detalle.cantidad
-                elif tipo == "salida":
-                    acumulados[clave]["salidas"] += detalle.cantidad
+            if mes_solicitado:
+                detalles_periodo = detalles_periodo.filter(
+                    movimiento__fecha__month=mes_solicitado
+                )
+
+            # Los rankings usan las salidas como ventas, según la regla del proyecto.
+            agregados_salida = list(
+                detalles_periodo.filter(
+                    movimiento__tipo_movimiento__nombre__iexact="Salida"
+                ).values("producto_id", "producto__nombre").annotate(
+                    total=Coalesce(Sum("cantidad"), 0)
+                ).order_by("-total", "producto__nombre")
+            )
+            agregados_entrada = list(
+                detalles_periodo.filter(
+                    movimiento__tipo_movimiento__nombre__iexact="Entrada"
+                ).values("producto_id", "producto__nombre").annotate(
+                    total=Coalesce(Sum("cantidad"), 0)
+                ).order_by("-total", "producto__nombre")
+            )
+
+            if agregados_entrada:
+                producto_mayor_entrada = agregados_entrada[0]
+            if agregados_salida:
+                producto_mayor_salida = agregados_salida[0]
+
+            # Incluye productos activos con cero salidas para el ranking de menos vendidos.
+            vendidos_por_id = {
+                item["producto_id"]: item["total"] for item in agregados_salida
+            }
+            productos_activos = list(
+                Producto.objects.filter(activo=True, archivado=False)
+                .values("id_producto", "nombre")
+                .order_by("nombre")
+            )
+            ranking_ventas = [
+                {
+                    "producto_id": item["id_producto"],
+                    "nombre": item["nombre"],
+                    "total": vendidos_por_id.get(item["id_producto"], 0),
+                }
+                for item in productos_activos
+            ]
+            ranking_ventas.sort(key=lambda item: (-item["total"], item["nombre"].lower()))
+            productos_mas_vendidos = ranking_ventas[:5]
+            productos_menos_vendidos = sorted(
+                ranking_ventas, key=lambda item: (item["total"], item["nombre"].lower())
+            )[:5]
 
             nombres_meses = (
                 "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
                 "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
             )
-            for anio_mes in meses:
-                valores = acumulados[anio_mes]
+            meses_grafico = [mes_solicitado] if mes_solicitado else list(range(1, 13))
+            detalles_grafico = detalles_periodo
+            if producto_solicitado:
+                detalles_grafico = detalles_grafico.filter(producto_id=producto_solicitado)
+
+            acumulados = defaultdict(lambda: {"entradas": 0, "salidas": 0})
+            for detalle in detalles_grafico.iterator():
+                fecha = timezone.localtime(detalle.movimiento.fecha)
+                clave = fecha.month
+                tipo_movimiento = detalle.movimiento.tipo_movimiento.nombre.strip().lower()
+                if tipo_movimiento == "entrada" and tipo_solicitado in ("ambos", "entrada"):
+                    acumulados[clave]["entradas"] += detalle.cantidad
+                elif tipo_movimiento == "salida" and tipo_solicitado in ("ambos", "salida"):
+                    acumulados[clave]["salidas"] += detalle.cantidad
+
+            for mes in meses_grafico:
+                valores = acumulados[mes]
                 grafico_movimientos.append({
-                    "mes": f"{nombres_meses[anio_mes[1] - 1]} {anio_mes[0]}",
+                    "mes": nombres_meses[mes - 1],
                     "entradas": valores["entradas"],
                     "salidas": valores["salidas"],
                 })
+
             grafico_maximo = max(
                 [max(item["entradas"], item["salidas"]) for item in grafico_movimientos] or [1]
             ) or 1
 
-    except DatabaseError:
+    except (DatabaseError, ValueError):
         logger.exception("Error cargando los indicadores del dashboard")
         dashboard_error = (
             "No se pudieron cargar los datos del inventario. "
@@ -187,9 +253,23 @@ def dashboard(request):
         "movimientos_recientes": movimientos_recientes,
         "grafico_movimientos": grafico_movimientos,
         "grafico_maximo": grafico_maximo,
+        "productos_mas_vendidos": productos_mas_vendidos,
+        "productos_menos_vendidos": productos_menos_vendidos,
+        "producto_mayor_entrada": producto_mayor_entrada,
+        "producto_mayor_salida": producto_mayor_salida,
+        "filtro_anio": anio_solicitado,
+        "filtro_mes": mes_solicitado or "",
+        "filtro_tipo": tipo_solicitado,
+        "filtro_producto": producto_solicitado or "",
+        "productos_filtro": Producto.objects.filter(activo=True, archivado=False).order_by("nombre"),
+        "meses_filtro": [
+            (1, "Enero"), (2, "Febrero"), (3, "Marzo"), (4, "Abril"),
+            (5, "Mayo"), (6, "Junio"), (7, "Julio"), (8, "Agosto"),
+            (9, "Septiembre"), (10, "Octubre"), (11, "Noviembre"), (12, "Diciembre"),
+        ],
+        "anios_filtro": range(fecha_actual.year - 4, fecha_actual.year + 2),
     }
     return render(request, "dashboard/index.html", context)
-
 
 @login_required
 def cuenta(request):
@@ -1210,4 +1290,5 @@ def movimientos_historial(request):
         "filter_query": filter_params.urlencode(),
     })
  
+
 
