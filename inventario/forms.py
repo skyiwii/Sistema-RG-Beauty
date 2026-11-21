@@ -168,6 +168,31 @@ class ProductoForm(forms.ModelForm):
         }),
         help_text="JPG, PNG o WebP; máximo 5 MB.",
     )
+    image_zoom = forms.IntegerField(
+        required=False,
+        initial=100,
+        min_value=50,
+        max_value=300,
+        widget=forms.HiddenInput(attrs={"data-image-zoom-input": ""}),
+    )
+    image_position_x = forms.IntegerField(
+        required=False,
+        initial=50,
+        min_value=0,
+        max_value=100,
+        widget=forms.HiddenInput(attrs={"data-image-position-x-input": ""}),
+    )
+    image_position_y = forms.IntegerField(
+        required=False,
+        initial=50,
+        min_value=0,
+        max_value=100,
+        widget=forms.HiddenInput(attrs={"data-image-position-y-input": ""}),
+    )
+    image_adjusted = forms.BooleanField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"data-image-adjusted-input": ""}),
+    )
     eliminar_imagen = forms.BooleanField(
         label="Quitar imagen actual",
         required=False,
@@ -245,6 +270,17 @@ class ProductoForm(forms.ModelForm):
     def clean_descripcion(self):
         descripcion = self.cleaned_data.get("descripcion")
         return descripcion.strip() if descripcion else descripcion
+
+    def clean(self):
+        cleaned_data = super().clean()
+        for field_name, default in (
+            ("image_zoom", 100),
+            ("image_position_x", 50),
+            ("image_position_y", 50),
+        ):
+            if cleaned_data.get(field_name) is None:
+                cleaned_data[field_name] = default
+        return cleaned_data
 
     def clean_imagen(self):
         imagen = self.cleaned_data.get("imagen")

@@ -52,19 +52,21 @@
                     <td>{{ marca.descripcion|default:"—" }}</td>
                     <td><span class="status-badge {% if marca.activo %}status-active{% else %}status-inactive{% endif %}">{% if marca.activo %}Activa{% else %}Inactiva{% endif %}</span></td>
                     <td class="actions-cell">
-                        <a href="{% url 'inventario:marca_editar' marca.pk %}">Editar</a>
-                        <form method="post" action="{% url 'inventario:marca_cambiar_estado' marca.pk %}">
-                            {% csrf_token %}
-                            <button type="submit" class="{% if marca.activo %}button-danger-link{% else %}button-action-link{% endif %}">
-                                {% if marca.activo %}Desactivar{% else %}Activar{% endif %}
-                            </button>
-                        </form>
-                        {% if perms.inventario.delete_marca or user.is_superuser %}
-                        <form method="post" action="{% url 'inventario:marca_eliminar' marca.pk %}" onsubmit="return confirm('¿Eliminar definitivamente la marca {{ marca.nombre|escapejs }}? Solo se podrá eliminar si no tiene productos asociados.');">
-                            {% csrf_token %}
-                            <button type="submit" class="button-danger-link">Eliminar</button>
-                        </form>
-                        {% endif %}
+                        <div class="row-actions">
+                            <a href="{% url 'inventario:marca_editar' marca.pk %}">Editar</a>
+                            <form method="post" action="{% url 'inventario:marca_cambiar_estado' marca.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="{% if marca.activo %}button-danger-link{% else %}button-action-link{% endif %}">
+                                    {% if marca.activo %}Desactivar{% else %}Activar{% endif %}
+                                </button>
+                            </form>
+                            {% if perms.inventario.delete_marca or user.is_superuser %}
+                            <form method="post" action="{% url 'inventario:marca_eliminar' marca.pk %}" onsubmit="return confirm('¿Eliminar definitivamente la marca {{ marca.nombre|escapejs }}? Solo se podrá eliminar si no tiene productos asociados.');">
+                                {% csrf_token %}
+                                <button type="submit" class="button-danger-link">Eliminar</button>
+                            </form>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
             {% empty %}

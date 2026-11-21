@@ -14,3 +14,4 @@
 @media(max-width:1000px){.product-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.product-filters{grid-template-columns:1fr}.filter-actions{align-items:stretch}.filter-actions .button{flex:1}.data-table th,.data-table td{padding:9px 8px;font-size:12px}}
 @media(max-width:650px){.product-detail-grid{grid-template-columns:1fr}.product-detail-grid .product-detail-description{grid-column:auto}.product-detail-heading{align-items:flex-start;flex-direction:column}.product-detail-layout{grid-template-columns:1fr}.product-detail-image{min-height:180px}.product-detail-image img{max-height:280px}}
+.products-table-panel .actions-cell .row-actions{display:flex;align-items:center;flex-wrap:wrap;gap:24px;min-width:170px;max-width:380px}

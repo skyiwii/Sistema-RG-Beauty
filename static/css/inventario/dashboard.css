@@ -175,7 +175,11 @@
 .dashboard-filter-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .dashboard-filter-actions .button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; }
 .chart-note { margin: 14px 2px 0; color: var(--muted); font-size: 12px; }
-.dashboard-rankings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 16px 0 28px; }
+.ranking-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-top: 26px; }
+.ranking-heading .section-title { margin: 0; }
+.ranking-selector { width: min(100%, 340px); }
+.dashboard-rankings { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; max-width: 760px; margin: 12px 0 28px; }
+.ranking-panel[hidden] { display: none; }
 .ranking-panel h3 { margin: 0 0 5px; font-size: 16px; }
 .ranking-list { margin: 14px 0 0; padding-left: 22px; }
 .ranking-list li { padding: 10px 4px; border-bottom: 1px solid var(--border); }
@@ -188,6 +192,8 @@
 }
 @media (max-width: 600px) {
     .dashboard-filters, .dashboard-rankings { grid-template-columns: 1fr; }
+    .ranking-heading { align-items: stretch; flex-direction: column; }
+    .ranking-selector { width: 100%; }
     .dashboard-filter-actions .button { flex: 1; }
     .chart-area { overflow-x: auto; grid-template-columns: repeat(6, minmax(75px, 1fr)); }
 }

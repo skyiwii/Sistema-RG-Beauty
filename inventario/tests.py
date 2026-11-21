@@ -12,6 +12,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.test import override_settings
 from django.contrib.auth.models import Group
+from django.core import mail
+from django.core.management import call_command
 from django.db import connection
 from django.utils import timezone
 from PIL import Image
@@ -32,6 +34,8 @@ from .models import (
     TipoMovimiento,
     DetalleMovimiento,
 )
+from .image_processing import ajustar_imagen_producto
+from .notifications import enviar_alerta_stock_bajo
 from .services import (
     MovimientoStockError,
     calcular_stock_nuevo,
@@ -122,6 +126,28 @@ class SetupInventoryCommandTests(TestCase):
 
         input_mock.assert_not_called()
         self.assertEqual(get_user_model().objects.filter(is_superuser=True).count(), 0)
+
+
+class DatosEjemploCommandTests(TestCase):
+    def test_creates_three_related_categories_brands_and_products_idempotently(self):
+        call_command("cargar_datos_ejemplo", stdout=io.StringIO())
+        call_command("cargar_datos_ejemplo", stdout=io.StringIO())
+
+        self.assertEqual(
+            CategoriaProducto.objects.filter(nombre__startswith="Demo -").count(),
+            3,
+        )
+        self.assertEqual(
+            Marca.objects.filter(nombre__startswith="Demo -").count(),
+            3,
+        )
+        products = Producto.objects.filter(sku__startswith="DEMO-")
+        self.assertEqual(products.count(), 3)
+        self.assertEqual(
+            products.values("categoria_id").distinct().count(),
+            3,
+        )
+        self.assertEqual(products.values("marca_id").distinct().count(), 3)
 
 
 class InventarioAdminTests(TestCase):
@@ -852,6 +878,9 @@ class ImagenProductoTests(TestCase):
             data={
                 **self.product_form_data(),
                 "imagen": self.image_upload(),
+                "image_zoom": "50",
+                "image_position_x": "50",
+                "image_position_y": "50",
             },
         )
 
@@ -860,6 +889,10 @@ class ImagenProductoTests(TestCase):
         product_image = ProductoImagen.objects.get(producto=product)
         self.assertTrue(default_storage.exists(product_image.url))
         self.assertTrue(product_image.principal)
+        with Image.open(default_storage.open(product_image.url)) as stored_image:
+            self.assertEqual(stored_image.size, (1200, 900))
+            self.assertEqual(stored_image.getpixel((0, 0)), (255, 255, 255))
+            self.assertGreater(stored_image.getpixel((600, 450))[0], 200)
 
         detail = self.client.get(f"/productos/{product.pk}/")
 
@@ -916,6 +949,50 @@ class ImagenProductoTests(TestCase):
         self.assertFalse(ProductoImagen.objects.filter(pk=product_image.pk).exists())
         self.assertFalse(default_storage.exists(product_image.url))
 
+    def test_edit_can_adjust_existing_image_without_uploading_it_again(self):
+        product = Producto.objects.create(
+            categoria=self.category,
+            marca=self.brand,
+            sku="IMAGE-003",
+            nombre="Producto con encuadre editable",
+        )
+        original_file = default_storage.save(
+            "productos/current-image.png",
+            self.image_upload("current-image.png"),
+        )
+        product_image = ProductoImagen.objects.create(
+            producto=product,
+            url=original_file,
+            texto_alternativo=product.nombre,
+            orden=1,
+            principal=True,
+        )
+
+        edit_page = self.client.get(f"/productos/{product.pk}/editar/")
+        self.assertEqual(edit_page.status_code, 200)
+        self.assertContains(edit_page, 'data-current-src="')
+
+        response = self.client.post(
+            f"/productos/{product.pk}/editar/",
+            data={
+                **self.product_form_data(),
+                "sku": "IMAGE-003",
+                "nombre": product.nombre,
+                "image_adjusted": "true",
+                "image_zoom": "50",
+                "image_position_x": "50",
+                "image_position_y": "50",
+            },
+        )
+
+        self.assertRedirects(response, "/productos/")
+        product_image.refresh_from_db()
+        self.assertNotEqual(product_image.url, original_file)
+        self.assertFalse(default_storage.exists(original_file))
+        with Image.open(default_storage.open(product_image.url)) as stored_image:
+            self.assertEqual(stored_image.size, (1200, 900))
+            self.assertEqual(stored_image.getpixel((0, 0)), (255, 255, 255))
+
     def test_invalid_non_image_upload_is_rejected(self):
         response = self.client.post(
             "/productos/nuevo/",
@@ -932,6 +1009,60 @@ class ImagenProductoTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["form"].errors.get("imagen"))
         self.assertFalse(Producto.objects.filter(sku="IMAGE-001").exists())
+
+
+class AjusteImagenProductoTests(SimpleTestCase):
+    @staticmethod
+    def uploaded_image(image):
+        image_bytes = io.BytesIO()
+        image.save(image_bytes, format="PNG")
+        upload = SimpleUploadedFile(
+            "producto.png",
+            image_bytes.getvalue(),
+            content_type="image/png",
+        )
+        upload.image = Image.open(io.BytesIO(image_bytes.getvalue()))
+        return upload
+
+    def test_crop_uses_horizontal_position_and_four_to_three_frame(self):
+        image = Image.new("RGB", (300, 100), color="blue")
+        image.paste((255, 0, 0), (0, 0, 100, 100))
+        upload = self.uploaded_image(image)
+
+        left_crop = ajustar_imagen_producto(
+            upload,
+            zoom=100,
+            posicion_x=0,
+            posicion_y=50,
+        )
+        right_crop = ajustar_imagen_producto(
+            upload,
+            zoom=100,
+            posicion_x=100,
+            posicion_y=50,
+        )
+
+        with (
+            Image.open(io.BytesIO(left_crop.read())) as left_image,
+            Image.open(io.BytesIO(right_crop.read())) as right_image,
+        ):
+            self.assertEqual(left_image.size, (1200, 900))
+            self.assertGreater(left_image.getpixel((600, 450))[0], 200)
+            self.assertGreater(right_image.getpixel((600, 450))[2], 200)
+
+    def test_zoom_out_leaves_space_around_the_image(self):
+        upload = self.uploaded_image(Image.new("RGB", (4, 3), color="red"))
+
+        adjusted = ajustar_imagen_producto(
+            upload,
+            zoom=50,
+            posicion_x=50,
+            posicion_y=50,
+        )
+
+        with Image.open(io.BytesIO(adjusted.read())) as image:
+            self.assertEqual(image.getpixel((0, 0)), (255, 255, 255))
+            self.assertEqual(image.getpixel((600, 450)), (255, 0, 0))
 
 
 class EliminacionPermanenteProductoTests(TestCase):
@@ -1157,6 +1288,36 @@ class DashboardStockTests(TestCase):
         self.assertEqual(response.context["productos_agotados"], 1)
         self.assertEqual(len(response.context["alertas_stock"]), 2)
 
+    def test_dashboard_ranking_selector_shows_one_ranking_by_default(self):
+        response = self.client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="dashboard-filters" data-live-filter')
+        self.assertContains(response, 'data-live-results="dashboard-chart"')
+        self.assertContains(response, 'data-live-results="dashboard-rankings"')
+        self.assertContains(response, 'id="dashboard-ranking-filter"')
+        self.assertContains(response, 'data-dashboard-ranking="mayor-entrada"')
+        self.assertContains(
+            response,
+            'data-dashboard-ranking="menor-entrada" hidden',
+        )
+        self.assertContains(
+            response,
+            'data-dashboard-ranking="mayor-salida" hidden',
+        )
+        self.assertContains(
+            response,
+            'data-dashboard-ranking="menor-salida" hidden',
+        )
+
+    def test_dashboard_omits_quick_actions_and_keeps_sidebar_navigation(self):
+        response = self.client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Acciones rápidas")
+        self.assertContains(response, 'href="/productos/"')
+        self.assertContains(response, 'href="/movimientos/nuevo/"')
+
 
 class ExistenciasFiltroTests(TestCase):
     def setUp(self):
@@ -1324,6 +1485,54 @@ class CalculoStockTests(SimpleTestCase):
     def test_entrada_no_supera_el_limite_de_stock(self):
         with self.assertRaises(MovimientoStockError):
             calcular_stock_nuevo("Entrada", 1, 2_147_483_647)
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    DEFAULT_FROM_EMAIL="inventario@example.com",
+    LOW_STOCK_NOTIFICATION_EMAIL="responsable@example.com",
+)
+class NotificacionStockBajoTests(SimpleTestCase):
+    def setUp(self):
+        mail.outbox = []
+        self.producto = SimpleNamespace(nombre="Crema", sku="CREMA-001")
+        self.inventario = SimpleNamespace(nombre="Bodega principal")
+
+    def test_envia_correo_al_cruzar_el_umbral_de_stock_bajo(self):
+        enviado = enviar_alerta_stock_bajo(
+            producto=self.producto,
+            inventario=self.inventario,
+            stock_anterior=6,
+            stock_nuevo=5,
+        )
+
+        self.assertTrue(enviado)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["responsable@example.com"])
+        self.assertIn("Stock actual: 5 unidades", mail.outbox[0].body)
+
+    def test_no_repite_correo_si_el_stock_ya_estaba_bajo(self):
+        enviado = enviar_alerta_stock_bajo(
+            producto=self.producto,
+            inventario=self.inventario,
+            stock_anterior=5,
+            stock_nuevo=3,
+        )
+
+        self.assertIsNone(enviado)
+        self.assertEqual(mail.outbox, [])
+
+    @override_settings(LOW_STOCK_NOTIFICATION_EMAIL="")
+    def test_notificaciones_se_desactivan_si_falta_destinatario(self):
+        enviado = enviar_alerta_stock_bajo(
+            producto=self.producto,
+            inventario=self.inventario,
+            stock_anterior=6,
+            stock_nuevo=2,
+        )
+
+        self.assertIsNone(enviado)
+        self.assertEqual(mail.outbox, [])
 
 
 class HistorialFiltroTests(SimpleTestCase):

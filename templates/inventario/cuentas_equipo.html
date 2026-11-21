@@ -44,13 +44,15 @@
                     </td>
                     <td>{% if cuenta.is_active %}Activa{% else %}Desactivada{% endif %}</td>
                     <td class="actions-cell">
-                        <a href="{% url 'inventario:cuenta_equipo_editar' cuenta.pk %}">Editar</a>
-                        <form method="post" action="{% url 'inventario:cuenta_equipo_cambiar_estado' cuenta.pk %}">
-                            {% csrf_token %}
-                            <button type="submit" class="button-danger-link">
-                                {% if cuenta.is_active %}Desactivar{% else %}Activar{% endif %}
-                            </button>
-                        </form>
+                        <div class="row-actions">
+                            <a href="{% url 'inventario:cuenta_equipo_editar' cuenta.pk %}">Editar</a>
+                            <form method="post" action="{% url 'inventario:cuenta_equipo_cambiar_estado' cuenta.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="button-danger-link">
+                                    {% if cuenta.is_active %}Desactivar{% else %}Activar{% endif %}
+                                </button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 {% empty %}

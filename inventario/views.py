@@ -1,7 +1,9 @@
 import logging
 import calendar
+import smtplib
 from collections import defaultdict
 from datetime import datetime, timedelta
+from pathlib import Path
 from uuid import uuid4
 
 from django.contrib import messages
@@ -34,6 +36,7 @@ from .forms import (
     PerfilForm,
     ProductoForm,
 )
+from .image_processing import ajustar_imagen_producto
 from .models import (
     CategoriaProducto,
     DetalleMovimiento,
@@ -53,6 +56,7 @@ from .services import (
     clasificar_stock,
     registrar_movimiento_stock,
 )
+from .notifications import enviar_alerta_stock_bajo
 from .roles import ADMIN_GROUP_NAME
 from .session_utils import (
     ACCESS_RECORD_SESSION_KEY,
@@ -60,6 +64,32 @@ from .session_utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _notificar_stock_bajo(request, resultado, producto, inventario):
+    try:
+        enviado = enviar_alerta_stock_bajo(
+            producto=producto,
+            inventario=inventario,
+            stock_anterior=resultado.stock_anterior,
+            stock_nuevo=resultado.stock_nuevo,
+        )
+    except (OSError, smtplib.SMTPException, ValueError):
+        logger.exception("No se pudo enviar la alerta de stock bajo")
+        messages.warning(
+            request,
+            "El movimiento se registró, pero no se pudo enviar la alerta por correo. "
+            "Comprueba la configuración SMTP.",
+        )
+        return
+
+    if enviado is True:
+        messages.info(request, "Se envió una alerta de stock bajo al correo configurado.")
+    elif enviado is False:
+        messages.warning(
+            request,
+            "El movimiento se registró, pero el servidor de correo no confirmó el envío.",
+        )
 
 
 def _delete_product_image_file(file_name):
@@ -647,6 +677,16 @@ def _verificar_permiso_producto(usuario):
 @login_required
 def producto_form(request, id_producto=None):
     producto = get_object_or_404(Producto, pk=id_producto) if id_producto is not None else None
+    imagen_producto = (
+        ProductoImagen.objects.filter(
+            producto=producto,
+            orden=1,
+            principal=True,
+            activo=True,
+        ).first()
+        if producto
+        else None
+    )
     if producto is not None:
         _verificar_permiso_producto(request.user)
         if producto.archivado:
@@ -680,9 +720,15 @@ def producto_form(request, id_producto=None):
                             "PNG": ".png",
                             "WEBP": ".webp",
                         }[imagen_subida.image.format]
+                        imagen_ajustada = ajustar_imagen_producto(
+                            imagen_subida,
+                            zoom=form.cleaned_data["image_zoom"],
+                            posicion_x=form.cleaned_data["image_position_x"],
+                            posicion_y=form.cleaned_data["image_position_y"],
+                        )
                         nuevo_archivo = default_storage.save(
                             f"productos/{uuid4().hex}{extension}",
-                            imagen_subida,
+                            imagen_ajustada,
                         )
                         if imagen_anterior:
                             archivo_anterior = imagen_anterior.url
@@ -708,6 +754,24 @@ def producto_form(request, id_producto=None):
                     elif quitar_imagen and imagen_anterior:
                         archivo_anterior = imagen_anterior.url
                         imagen_anterior.delete()
+                    elif imagen_anterior and form.cleaned_data["image_adjusted"]:
+                        extension = Path(imagen_anterior.url).suffix.lower()
+                        if extension not in {".jpg", ".jpeg", ".png", ".webp"}:
+                            raise ValueError("El formato de imagen guardado no es compatible.")
+                        with default_storage.open(imagen_anterior.url, "rb") as imagen_actual:
+                            imagen_ajustada = ajustar_imagen_producto(
+                                imagen_actual,
+                                zoom=form.cleaned_data["image_zoom"],
+                                posicion_x=form.cleaned_data["image_position_x"],
+                                posicion_y=form.cleaned_data["image_position_y"],
+                            )
+                        archivo_anterior = imagen_anterior.url
+                        nuevo_archivo = default_storage.save(
+                            f"productos/{uuid4().hex}{extension}",
+                            imagen_ajustada,
+                        )
+                        imagen_anterior.url = nuevo_archivo
+                        imagen_anterior.save(update_fields=["url"])
 
                     nuevo_precio = form.cleaned_data["precio"]
                     precio_actual = ProductoPrecio.objects.filter(
@@ -738,6 +802,14 @@ def producto_form(request, id_producto=None):
                         )
                 messages.success(request, "Producto guardado correctamente.")
                 return redirect("inventario:productos_lista")
+            except (OSError, ValueError):
+                if nuevo_archivo:
+                    _delete_product_image_file(nuevo_archivo)
+                logger.exception("Error ajustando la imagen del producto")
+                form.add_error(
+                    "imagen",
+                    "No se pudo ajustar o guardar la imagen. Intenta con otra imagen.",
+                )
             except IntegrityError:
                 if nuevo_archivo:
                     _delete_product_image_file(nuevo_archivo)
@@ -753,6 +825,7 @@ def producto_form(request, id_producto=None):
     return render(request, "inventario/producto_form.html", {
         "form": form,
         "producto": producto,
+        "imagen_producto": imagen_producto,
         "titulo": "Editar producto" if producto else "Registrar producto",
     })
 
@@ -1132,6 +1205,12 @@ def movimiento_form(request):
                     "No se pudo registrar el movimiento. Comprueba la conexión y las tablas de MySQL.",
                 )
             else:
+                _notificar_stock_bajo(
+                    request,
+                    resultado,
+                    form.cleaned_data["producto"],
+                    form.cleaned_data["inventario"],
+                )
                 messages.success(
                     request,
                     f"Movimiento registrado. Stock actualizado de "
@@ -1191,6 +1270,12 @@ def ajustes_stock(request):
                     messages.info(request, "El stock ya coincide con el conteo físico; no se registró ningún ajuste.")
                     return redirect("inventario:ajustes_stock")
                 else:
+                    _notificar_stock_bajo(
+                        request,
+                        resultado,
+                        form.cleaned_data["producto"],
+                        form.cleaned_data["inventario"],
+                    )
                     messages.success(
                         request,
                         f"Ajuste registrado. Stock actualizado de "

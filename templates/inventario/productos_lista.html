@@ -3,7 +3,7 @@
  
 {% block title %}Productos{% endblock %}
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/inventario/productos.css' %}">
+<link rel="stylesheet" href="{% static 'css/inventario/productos.css' %}?v=5">
 {% endblock %}
 
 {% block content %}
@@ -81,26 +81,28 @@
                     <td>{% if producto.creado_por %}{{ producto.creado_por.get_username }}{% else %}Sin asignar{% endif %}</td>
                     <td><span class="status-badge {% if producto.activo %}status-active{% else %}status-inactive{% endif %}">{% if producto.archivado %}Retirado{% elif producto.activo %}Activo{% else %}Inactivo{% endif %}</span></td>
                     <td class="actions-cell">
-                        <a href="{% url 'inventario:producto_detalle' producto.pk %}">Ver detalle y existencias</a>
-                        {% if not producto.archivado %}
-                            {% if user.is_superuser or perms.inventario.change_producto %}
-                        <a href="{% url 'inventario:producto_editar' producto.pk %}">Editar</a>
-                        <form method="post" action="{% url 'inventario:producto_cambiar_estado' producto.pk %}" onsubmit="return confirm('{% if producto.activo %}¿Desactivar este producto? Se conservarán el stock y el historial.{% else %}¿Activar nuevamente este producto?{% endif %}');">
-                            {% csrf_token %}<button type="submit" class="{% if producto.activo %}button-danger-link{% else %}button-action-link{% endif %}">{% if producto.activo %}Desactivar{% else %}Activar{% endif %}</button>
-                        </form>
-                        {% if not producto.activo %}
-                            {% if perms.inventario.delete_producto or user.is_superuser %}
-                        <form method="post" action="{% url 'inventario:producto_eliminar' producto.pk %}" onsubmit="return confirm('¿Retirar definitivamente {{ producto.nombre|escapejs }} del catálogo? Ya no se podrá activar ni usar en nuevos movimientos. Se conservarán el stock y todos los registros históricos.');">
-                            {% csrf_token %}<button type="submit" class="button-danger-link">Eliminar del catálogo</button>
-                        </form>
-                            {% endif %}
-                        {% endif %}
+                        <div class="row-actions">
+                            <a href="{% url 'inventario:producto_detalle' producto.pk %}">Ver detalle</a>
+                            {% if not producto.archivado %}
+                                {% if user.is_superuser or perms.inventario.change_producto %}
+                                    <a href="{% url 'inventario:producto_editar' producto.pk %}">Editar</a>
+                                    <form method="post" action="{% url 'inventario:producto_cambiar_estado' producto.pk %}" onsubmit="return confirm('{% if producto.activo %}¿Desactivar este producto? Se conservarán el stock y el historial.{% else %}¿Activar nuevamente este producto?{% endif %}');">
+                                        {% csrf_token %}<button type="submit" class="{% if producto.activo %}button-danger-link{% else %}button-action-link{% endif %}">{% if producto.activo %}Desactivar{% else %}Activar{% endif %}</button>
+                                    </form>
+                                    {% if not producto.activo %}
+                                        {% if perms.inventario.delete_producto or user.is_superuser %}
+                                    <form method="post" action="{% url 'inventario:producto_eliminar' producto.pk %}" onsubmit="return confirm('¿Retirar definitivamente {{ producto.nombre|escapejs }} del catálogo? Ya no se podrá activar ni usar en nuevos movimientos. Se conservarán el stock y todos los registros históricos.');">
+                                        {% csrf_token %}<button type="submit" class="button-danger-link">Eliminar del catálogo</button>
+                                    </form>
+                                        {% endif %}
+                                    {% endif %}
+                                {% else %}
+                                    <span class="muted-action">Solo una cuenta autorizada puede editar</span>
+                                {% endif %}
                             {% else %}
-                        <span class="muted-action">Solo una cuenta autorizada puede editar</span>
+                                <span class="muted-action">Retirado del catálogo; historial conservado</span>
                             {% endif %}
-                        {% else %}
-                        <span class="muted-action">Retirado del catálogo; historial conservado</span>
-                        {% endif %}
+                        </div>
                     </td>
                 </tr>
             {% empty %}

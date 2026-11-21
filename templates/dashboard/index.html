@@ -47,7 +47,7 @@
         <div class="chart-legend"><span><i class="legend-entry"></i> Entradas</span><span><i class="legend-exit"></i> Salidas (ventas)</span></div>
     </div>
 
-    <form method="get" class="dashboard-filters">
+    <form method="get" class="dashboard-filters" data-live-filter>
         <div class="dashboard-filter-field">
             <label for="filtro-anio">Año</label>
             <select id="filtro-anio" name="anio">
@@ -94,10 +94,11 @@
         <div class="dashboard-filter-actions">
             <button class="button button-primary" type="submit">Aplicar filtros</button>
             <a class="button button-secondary" href="{% url 'inventario:dashboard' %}">Limpiar</a>
+            <span data-live-status aria-live="polite"></span>
         </div>
     </form>
 
-    <div class="chart-area" role="img" aria-label="Gráfico de entradas y salidas de inventario">
+    <div class="chart-area" role="img" aria-label="Gráfico de entradas y salidas de inventario" data-live-results="dashboard-chart">
         {% for item in grafico_movimientos %}
         <div class="chart-month">
             <div class="chart-bars">
@@ -111,89 +112,47 @@
     <p class="chart-note">Los rankings siguientes consideran el período seleccionado. Las salidas se contabilizan como ventas, según el funcionamiento definido para RG Beauty.</p>
 </section>
 
-<h2 class="section-title">Productos con más y menos movimientos</h2>
-<section class="dashboard-rankings">
-    <article class="panel ranking-panel">
+<div class="ranking-heading">
+    <h2 class="section-title">Productos con más y menos movimientos</h2>
+    <div class="dashboard-filter-field ranking-selector">
+        <label for="dashboard-ranking-filter">Mostrar ranking</label>
+        <select id="dashboard-ranking-filter" data-ranking-filter aria-controls="dashboard-rankings">
+            <option value="mayor-entrada">Mayor entrada</option>
+            <option value="menor-entrada">Menor entrada</option>
+            <option value="mayor-salida">Más vendidos (mayor salida)</option>
+            <option value="menor-salida">Menos vendidos (menor salida)</option>
+        </select>
+    </div>
+</div>
+<section class="dashboard-rankings" id="dashboard-rankings" data-ranking-container data-live-results="dashboard-rankings" aria-live="polite">
+    <article class="panel ranking-panel" data-dashboard-ranking="mayor-entrada">
         <h3>Mayor entrada</h3>
         <p class="panel-subtitle">Productos que recibieron más unidades.</p>
         <ol class="ranking-list">
             {% for item in productos_mayor_entrada %}<li><span>{{ item.nombre }}</span><strong>{{ item.cantidad }} un.</strong></li>{% empty %}<li class="empty-state">Sin datos para el período.</li>{% endfor %}
         </ol>
     </article>
-    <article class="panel ranking-panel">
+    <article class="panel ranking-panel" data-dashboard-ranking="menor-entrada" hidden>
         <h3>Menor entrada</h3>
         <p class="panel-subtitle">Productos que recibieron menos unidades.</p>
         <ol class="ranking-list">
             {% for item in productos_menor_entrada %}<li><span>{{ item.nombre }}</span><strong>{{ item.cantidad }} un.</strong></li>{% empty %}<li class="empty-state">Sin datos para el período.</li>{% endfor %}
         </ol>
     </article>
-    <article class="panel ranking-panel">
+    <article class="panel ranking-panel" data-dashboard-ranking="mayor-salida" hidden>
         <h3>Mayor salida / más vendidos</h3>
         <p class="panel-subtitle">Productos con más unidades de salida.</p>
         <ol class="ranking-list">
             {% for item in productos_mayor_salida %}<li><span>{{ item.nombre }}</span><strong>{{ item.cantidad }} un.</strong></li>{% empty %}<li class="empty-state">Sin datos para el período.</li>{% endfor %}
         </ol>
     </article>
-    <article class="panel ranking-panel">
+    <article class="panel ranking-panel" data-dashboard-ranking="menor-salida" hidden>
         <h3>Menor salida / menos vendidos</h3>
         <p class="panel-subtitle">Productos con menos unidades de salida.</p>
         <ol class="ranking-list">
             {% for item in productos_menor_salida %}<li><span>{{ item.nombre }}</span><strong>{{ item.cantidad }} un.</strong></li>{% empty %}<li class="empty-state">Sin datos para el período.</li>{% endfor %}
         </ol>
     </article>
-</section>
-
-<h2 class="section-title">Acciones rápidas</h2>
-<section class="content-grid">
-    <div class="panel">
-        <h3>Gestión de inventario</h3>
-        <p class="panel-subtitle">Accede a las operaciones principales del sistema.</p>
-        <div class="action-list">
-            {% if perms.inventario.add_producto or user.is_superuser %}
-            <a class="action-link" href="{% url 'inventario:producto_form' %}">
-                <span><strong>+ Nuevo producto</strong><small>Registrar un producto en el catálogo.</small></span>
-                <span class="action-arrow">→</span>
-            </a>
-            {% endif %}
-            {% if perms.inventario.view_producto %}
-            <a class="action-link" href="{% url 'inventario:productos_lista' %}">
-                <span><strong>Productos</strong><small>Consultar y administrar el catálogo.</small></span>
-                <span class="action-arrow">→</span>
-            </a>
-            {% endif %}
-            {% if perms.inventario.view_stock %}
-            <a class="action-link" href="{% url 'inventario:stock_lista' %}">
-                <span><strong>Existencias</strong><small>Consultar cantidades y alertas de stock.</small></span>
-                <span class="action-arrow">→</span>
-            </a>
-            {% endif %}
-            {% if perms.inventario.view_movimientoinventario %}
-            <a class="action-link" href="{% url 'inventario:movimientos_historial' %}">
-                <span><strong>Historial de movimientos</strong><small>Revisar operaciones con filtros.</small></span>
-                <span class="action-arrow">→</span>
-            </a>
-            {% endif %}
-        </div>
-    </div>
-
-    <div class="panel">
-        <h3>Operaciones de stock</h3>
-        <p class="panel-subtitle">Accesos a las pantallas de gestión de existencias.</p>
-        <div class="action-list">
-            {% if perms.inventario.register_stock_movement %}
-            <a class="action-link" href="{% url 'inventario:movimiento_form' %}">
-                <span><strong>Registrar entrada o salida</strong><small>Registrar cambios en las existencias.</small></span>
-                <span class="action-arrow">↗</span>
-            </a>
-            {% endif %}
-            {% if perms.inventario.adjust_stock %}
-            <a class="action-link" href="{% url 'inventario:ajustes_stock' %}">
-                <span><strong>Ajustar existencias</strong><small>Corregir el stock desde un conteo físico.</small></span>
-                <span class="action-arrow">↗</span>
-            </a>
-            {% endif %}
-        </div>
-    </div>
 </section>
 
 <h2 class="section-title">Seguimiento del inventario</h2>
@@ -252,4 +211,8 @@
     </div>
     {% endif %}
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/inventario/dashboard_rankings.js' %}" defer></script>
 {% endblock %}

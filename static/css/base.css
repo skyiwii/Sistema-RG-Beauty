@@ -436,6 +436,63 @@ textarea {
     font-size: 12px;
 }
 
+.data-table td.actions-cell {
+    white-space: normal;
+}
+
+.actions-cell .row-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 170px;
+    max-width: 380px;
+}
+
+.actions-cell .row-actions form {
+    display: inline-flex;
+    margin: 0;
+}
+
+.actions-cell .row-actions a,
+.actions-cell .row-actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 4px 9px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--pink-dark);
+    font: inherit;
+    font-size: 12px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.actions-cell .row-actions button {
+    cursor: pointer;
+}
+
+.actions-cell .row-actions button.button-danger-link {
+    color: #b42318;
+}
+
+.actions-cell .row-actions button.button-action-link {
+    color: #217a45;
+}
+
+.actions-cell .row-actions a:hover,
+.actions-cell .row-actions button:hover {
+    background: var(--pink-soft);
+}
+
+.actions-cell .row-actions .muted-action {
+    display: block;
+    white-space: normal;
+}
+
 .data-table tbody tr:last-child td {
     border-bottom: none;
 }

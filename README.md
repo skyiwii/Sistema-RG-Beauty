@@ -154,8 +154,18 @@ Significado de las variables:
 | `DB_PASSWORD` | Contraseña de ese usuario. |
 | `DB_HOST` | Dirección del servidor MySQL. |
 | `DB_PORT` | Puerto de conexión de MySQL; habitualmente es `3306`. |
+| `LOW_STOCK_NOTIFICATION_EMAIL` | Opcional. Dirección que recibe avisos cuando el stock cruza desde más de 5 unidades a 5 o menos. Si queda vacía, los avisos por correo están desactivados. |
+| `EMAIL_HOST` | Opcional. Servidor SMTP; Gmail (`smtp.gmail.com`) es el predeterminado. |
+| `EMAIL_PORT` | Opcional. Puerto SMTP; `587` es el predeterminado. |
+| `EMAIL_HOST_USER` | Opcional. Cuenta autenticada en el servidor SMTP. |
+| `EMAIL_HOST_PASSWORD` | Opcional. Contraseña o clave de aplicación SMTP. |
+| `EMAIL_USE_TLS` | Opcional. Usar TLS en la conexión SMTP (`True` por defecto). |
+| `EMAIL_TIMEOUT` | Opcional. Tiempo máximo de espera de conexión SMTP, en segundos. |
+| `DEFAULT_FROM_EMAIL` | Opcional. Dirección remitente mostrada en la alerta; por defecto usa `EMAIL_HOST_USER`. |
 
 Los valores del ejemplo son orientativos. Cada integrante debe reemplazarlos por sus credenciales reales.
+
+Las alertas por correo son opcionales: si `LOW_STOCK_NOTIFICATION_EMAIL` queda vacío en `.env`, la función se desactiva y no es necesario completar los demás campos de correo. Para activarlas con Gmail, indicar el destinatario, la cuenta emisora en `EMAIL_HOST_USER`, su clave de aplicación en `EMAIL_HOST_PASSWORD` y, opcionalmente, `DEFAULT_FROM_EMAIL`. El servidor `smtp.gmail.com`, puerto `587` y TLS ya son los valores predeterminados. Google exige tener activada la verificación en dos pasos para generar una clave de aplicación; no usar la contraseña normal de Gmail ni subir estas credenciales al repositorio. El aviso se genera al bajar el stock de más de 5 unidades a 5 o menos, y no se repite por cada movimiento posterior mientras siga bajo. Si el correo falla, el movimiento de inventario se conserva y la aplicación muestra una advertencia.
 
 **Seguridad:** `.env` contiene información local y sensible. No debe subirse a GitHub. El archivo `.gitignore` debe continuar excluyéndolo, junto con `.venv/`.
 
@@ -313,6 +323,8 @@ Para detener el servidor, presionar `Ctrl + C` en la terminal.
 
 En una instalación nueva, el personal técnico aplica las migraciones y ejecuta una sola vez `python manage.py setup_inventory`. El comando prepara los roles y el inventario inicial, y solicita por terminal el usuario, correo y contraseña de la dueña. La cuenta creada es Administradora de la aplicación, no superusuario ni miembro de Django Admin.
 
+Para preparar una demostración con datos de catálogo, se puede ejecutar `python manage.py cargar_datos_ejemplo`. El comando agrega tres categorías, tres marcas y tres productos de ejemplo, y puede repetirse sin duplicarlos.
+
 La clienta recibe sus credenciales y usa la aplicación normalmente; no ejecuta comandos ni necesita acceder a `/admin/`. Desde **Equipo y permisos** puede crear cuentas, asignar los roles Administradora o Asistenta y desactivarlas. Las asistentes pueden consultar el catálogo y las existencias y registrar entradas y salidas; no pueden ajustar el inventario, modificar productos ni consultar auditorías. La sección `/admin/` se reserva para mantenimiento técnico autorizado.
 
 ---
@@ -379,6 +391,7 @@ El proyecto está orientado al desarrollo de un sistema de inventario integrado 
 
 Las funcionalidades contempladas incluyen:
 
+- Panel de inicio con filtros en tiempo real para los gráficos de movimientos y selección de un ranking de productos.
 - Gestión y consulta de productos.
 - Consulta de existencias y disponibilidad.
 - Registro de entradas y salidas.
@@ -690,6 +703,7 @@ Se agregó la funcionalidad de productos sobre las tablas MySQL existentes (`pro
 
 - `inventario/models.py`: modelos Django mapeados a las tablas existentes.
 - `inventario/forms.py`: formulario con campos obligatorios, precio no negativo y validación de SKU duplicado.
+- `inventario/image_processing.py`: recorte de imágenes en proporción 4:3 usando el zoom y posición elegidos.
 - `inventario/models.py`: modelo de imagen principal vinculado a la tabla de negocio `producto_imagen`.
 - `inventario/views.py`: listado con búsqueda y filtros, registro, edición, actualización de precio, activación/desactivación y retiro definitivo del catálogo conservando historial y existencias.
 - `inventario/urls.py`: rutas para listado, nuevo, editar, cambiar estado y retirar productos del catálogo.
@@ -699,6 +713,7 @@ Se agregó la funcionalidad de productos sobre las tablas MySQL existentes (`pro
 - `templates/inventario/producto_detalle.html`: detalle con la imagen del producto junto a la información principal.
 - `static/css/inventario/productos.css`: estilos del catálogo, filtros, tabla, mensajes y estados.
 - `static/css/inventario/producto_form.css`: estilos del formulario.
+- `static/js/inventario/product_image_upload.js`: vista previa ajustable con arrastre y rueda del mouse, tanto al subir como al editar una imagen.
 
 Al retirar definitivamente un producto se oculta del catálogo operativo y se impide reactivarlo o usarlo en nuevos movimientos. El registro del producto se conserva internamente para no perder sus vínculos con ventas, precios, existencias y movimientos históricos.
 

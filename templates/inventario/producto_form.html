@@ -17,9 +17,13 @@
     <p class="panel-subtitle">Los campos marcados con * son obligatorios. El SKU debe ser único.</p>
     <form method="post" class="product-form" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
+        {{ form.image_zoom }}
+        {{ form.image_position_x }}
+        {{ form.image_position_y }}
+        {{ form.image_adjusted }}
         {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
         {% for field in form %}
-            {% if field.name != "imagen" and field.name != "eliminar_imagen" %}
+            {% if field.name != "imagen" and field.name != "eliminar_imagen" and field.name != "image_zoom" and field.name != "image_position_x" and field.name != "image_position_y" and field.name != "image_adjusted" %}
             <div class="form-group">
                 <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span>*</span>{% endif %}</label>
                 
@@ -30,7 +34,7 @@
             {% endif %}
         {% endfor %}
         <div class="form-group">
-            <label for="{{ form.imagen.id_for_label }}">{{ form.imagen.label }}</label>
+            <label for="{{ form.imagen.id_for_label }}">{% if imagen_producto %}Cambiar imagen{% else %}{{ form.imagen.label }}{% endif %}</label>
             <div class="product-image-dropzone" data-image-dropzone>
                 <input type="file" name="{{ form.imagen.name }}" id="{{ form.imagen.id_for_label }}"
                     accept="image/jpeg,image/png,image/webp" aria-describedby="image-upload-help">
@@ -39,6 +43,9 @@
             </div>
             <small id="image-upload-help">{{ form.imagen.help_text }}</small>
             {% if form.imagen.errors %}<div class="form-errors">{{ form.imagen.errors }}</div>{% endif %}
+            {% if form.image_zoom.errors or form.image_position_x.errors or form.image_position_y.errors or form.image_adjusted.errors %}
+            <div class="form-errors">No se pudo aplicar el ajuste de imagen. Vuelve a seleccionar la imagen.</div>
+            {% endif %}
             <div class="product-image-preview" data-image-preview-container>
                 {% if imagen_producto %}
                 <img src="{{ imagen_producto.image_src }}" alt="{{ imagen_producto.texto_alternativo|default:producto.nombre }}" data-image-preview data-current-src="{{ imagen_producto.image_src }}" data-current-alt="{{ imagen_producto.texto_alternativo|default:producto.nombre }}">
@@ -47,6 +54,16 @@
                 <img alt="Vista previa de la imagen seleccionada" data-image-preview hidden>
                 <span data-image-placeholder>No hay imagen seleccionada.</span>
                 {% endif %}
+            </div>
+            <div class="product-image-editor" data-image-editor hidden>
+                <p><strong>Encuadre de la imagen</strong><br>
+                    Arrastra para moverla, usa la rueda del mouse para acercar o alejar y haz doble clic para centrarla.
+                    {% if imagen_producto %}Si no eliges otra imagen arriba, ajustarás la actual.{% endif %}
+                </p>
+                <div class="product-image-crop-frame" data-image-crop-frame>
+                    <canvas width="1200" height="900" data-image-crop-canvas
+                        role="img" aria-label="Vista previa del encuadre de la imagen"></canvas>
+                </div>
             </div>
             {% if imagen_producto %}
             <div class="form-group product-image-remove">

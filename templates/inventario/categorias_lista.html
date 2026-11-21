@@ -52,19 +52,21 @@
                     <td>{{ categoria.descripcion|default:"—" }}</td>
                     <td><span class="status-badge {% if categoria.activo %}status-active{% else %}status-inactive{% endif %}">{% if categoria.activo %}Activa{% else %}Inactiva{% endif %}</span></td>
                     <td class="actions-cell">
-                        <a href="{% url 'inventario:categoria_editar' categoria.pk %}">Editar</a>
-                        <form method="post" action="{% url 'inventario:categoria_cambiar_estado' categoria.pk %}">
-                            {% csrf_token %}
-                            <button type="submit" class="{% if categoria.activo %}button-danger-link{% else %}button-action-link{% endif %}">
-                                {% if categoria.activo %}Desactivar{% else %}Activar{% endif %}
-                            </button>
-                        </form>
-                        {% if perms.inventario.delete_categoriaproducto or user.is_superuser %}
-                        <form method="post" action="{% url 'inventario:categoria_eliminar' categoria.pk %}" onsubmit="return confirm('¿Eliminar definitivamente la categoría {{ categoria.nombre|escapejs }}? Solo se podrá eliminar si no tiene productos asociados.');">
-                            {% csrf_token %}
-                            <button type="submit" class="button-danger-link">Eliminar</button>
-                        </form>
-                        {% endif %}
+                        <div class="row-actions">
+                            <a href="{% url 'inventario:categoria_editar' categoria.pk %}">Editar</a>
+                            <form method="post" action="{% url 'inventario:categoria_cambiar_estado' categoria.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="{% if categoria.activo %}button-danger-link{% else %}button-action-link{% endif %}">
+                                    {% if categoria.activo %}Desactivar{% else %}Activar{% endif %}
+                                </button>
+                            </form>
+                            {% if perms.inventario.delete_categoriaproducto or user.is_superuser %}
+                            <form method="post" action="{% url 'inventario:categoria_eliminar' categoria.pk %}" onsubmit="return confirm('¿Eliminar definitivamente la categoría {{ categoria.nombre|escapejs }}? Solo se podrá eliminar si no tiene productos asociados.');">
+                                {% csrf_token %}
+                                <button type="submit" class="button-danger-link">Eliminar</button>
+                            </form>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
             {% empty %}

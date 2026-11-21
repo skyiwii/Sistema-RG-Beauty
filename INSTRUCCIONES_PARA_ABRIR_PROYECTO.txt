@@ -47,6 +47,7 @@ El comando puede ejecutarse nuevamente sin duplicar la cuenta Administradora
 activa ni los datos iniciales. No es necesario que la dueña lo ejecute en el
 uso diario ni que use Django Admin.
 
+
 4. INICIAR LA APLICACION
 ------------------------
 Ejecuta:
@@ -60,6 +61,13 @@ runserver desde la carpeta del proyecto.
 Si el codigo recibido incluye nuevas migraciones, aplica primero:
 
     python manage.py migrate
+
+Para cargar datos de muestra para una presentacion, ejecuta:
+
+    python manage.py cargar_datos_ejemplo
+
+El comando crea tres categorias, tres marcas y tres productos. Puede repetirse
+sin duplicar esos registros.
 
 5. IMAGENES DE PRODUCTOS
 ------------------------
