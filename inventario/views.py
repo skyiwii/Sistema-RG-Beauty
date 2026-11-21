@@ -155,9 +155,28 @@ def dashboard(request):
                 movimiento__fecha__gte=inicio_periodo,
                 movimiento__fecha__lt=fin_periodo,
             )
+            # Si se selecciona un mes, limitar la consulta al intervalo exacto
+            # de ese mes usando la zona horaria configurada en Django.
             if mes_solicitado:
+                inicio_mes = timezone.make_aware(
+                    datetime(anio_solicitado, mes_solicitado, 1),
+                    timezone.get_current_timezone(),
+                )
+
+                if mes_solicitado == 12:
+                    fin_mes = timezone.make_aware(
+                        datetime(anio_solicitado + 1, 1, 1),
+                        timezone.get_current_timezone(),
+                    )
+                else:
+                    fin_mes = timezone.make_aware(
+                        datetime(anio_solicitado, mes_solicitado + 1, 1),
+                        timezone.get_current_timezone(),
+                    )
+
                 detalles_periodo = detalles_periodo.filter(
-                    movimiento__fecha__month=mes_solicitado
+                    movimiento__fecha__gte=inicio_mes,
+                    movimiento__fecha__lt=fin_mes,
                 )
 
             # Los rankings usan las salidas como ventas, según la regla del proyecto.
