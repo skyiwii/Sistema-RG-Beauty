@@ -153,134 +153,41 @@
     }
 }
 
-
-/* Filtros del gráfico y panel de indicadores */
+/* Filtros y rankings del dashboard */
 .dashboard-filters {
     display: grid;
-    grid-template-columns: repeat(4, minmax(130px, 1fr)) auto;
+    grid-template-columns: repeat(4, minmax(140px, 1fr)) auto;
     gap: 12px;
     align-items: end;
     margin: 22px 0 8px;
     padding: 16px;
-    background: var(--surface, #faf7f9);
     border: 1px solid var(--border);
     border-radius: 12px;
+    background: var(--surface, #fff);
 }
-.filter-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    min-width: 0;
+.dashboard-filter-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.dashboard-filter-field label { color: var(--text); font-size: 12px; font-weight: 600; }
+.dashboard-filter-field select {
+    width: 100%; min-height: 40px; padding: 8px 10px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface, #fff); color: var(--text); font: inherit;
 }
-.filter-field label {
-    color: var(--text);
-    font-size: 12px;
-    font-weight: 700;
-}
-.filter-field select {
-    width: 100%;
-    min-height: 40px;
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #fff;
-    color: var(--text);
-    font: inherit;
-}
-.filter-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-.filter-actions .button {
-    min-height: 40px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-.chart-period-note {
-    margin: 10px 0 0;
-    color: var(--muted);
-    font-size: 12px;
-}
-.dashboard-highlights {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px;
-    margin: 22px 0 28px;
-}
-.highlight-card {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    min-width: 0;
-    padding: 20px;
-}
-.highlight-card h3 {
-    margin: 3px 0 5px;
-    font-size: 18px;
-    overflow-wrap: anywhere;
-}
-.highlight-card strong {
-    color: var(--text);
-    font-size: 13px;
-}
-.highlight-icon {
-    display: inline-flex;
-    flex: 0 0 44px;
-    width: 44px;
-    height: 44px;
-    align-items: center;
-    justify-content: center;
-    border-radius: 12px;
-    font-size: 25px;
-    font-weight: 800;
-}
-.entry-icon {
-    color: #267a52;
-    background: #e5f4eb;
-}
-.exit-icon {
-    color: #a94e63;
-    background: #fae9ed;
-}
-.dashboard-rankings {
-    margin-bottom: 28px;
-}
-.dashboard-rankings .panel h3 {
-    margin-top: 0;
-}
-.dashboard-rankings .data-table td:last-child,
-.dashboard-rankings .data-table th:last-child {
-    text-align: right;
-}
+.dashboard-filter-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.dashboard-filter-actions .button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; }
+.chart-note { margin: 14px 2px 0; color: var(--muted); font-size: 12px; }
+.dashboard-rankings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 16px 0 28px; }
+.ranking-panel h3 { margin: 0 0 5px; font-size: 16px; }
+.ranking-list { margin: 14px 0 0; padding-left: 22px; }
+.ranking-list li { padding: 10px 4px; border-bottom: 1px solid var(--border); }
+.ranking-list li:last-child { border-bottom: 0; }
+.ranking-list li span { display: inline-block; max-width: 75%; overflow-wrap: anywhere; }
+.ranking-list li strong { float: right; color: var(--text); font-variant-numeric: tabular-nums; }
 @media (max-width: 900px) {
-    .dashboard-filters {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .filter-actions {
-        grid-column: 1 / -1;
-    }
+    .dashboard-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dashboard-filter-actions { grid-column: 1 / -1; }
 }
 @media (max-width: 600px) {
-    .dashboard-filters {
-        grid-template-columns: 1fr;
-        padding: 12px;
-    }
-    .filter-actions {
-        grid-column: auto;
-    }
-    .dashboard-highlights {
-        grid-template-columns: 1fr;
-    }
-    .highlight-card {
-        padding: 16px;
-    }
-    .chart-area {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        row-gap: 20px;
-    }
-    .chart-area-single {
-        grid-template-columns: 1fr;
-    }
+    .dashboard-filters, .dashboard-rankings { grid-template-columns: 1fr; }
+    .dashboard-filter-actions .button { flex: 1; }
+    .chart-area { overflow-x: auto; grid-template-columns: repeat(6, minmax(75px, 1fr)); }
 }
